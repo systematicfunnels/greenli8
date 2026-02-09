@@ -10,6 +10,7 @@ interface DashboardViewProps {
   onValidateNew: () => void;
   onViewHistory: () => void;
   onViewReport: (report: ValidationReport) => void;
+  onExample: () => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
@@ -17,7 +18,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   history, 
   onValidateNew, 
   onViewHistory,
-  onViewReport 
+  onViewReport,
+  onExample
 }) => {
   const recentReports = history.slice(0, 3);
   const avgScore = history.length > 0 
@@ -102,7 +104,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <p className="text-slate-500 mb-6 max-w-sm">
               You haven't analyzed any ideas yet. Start your first validation to get AI-powered market feedback.
             </p>
-            <Button onClick={onValidateNew}>Start your first validation</Button>
+            <div className="flex gap-3">
+                <Button onClick={onValidateNew}>Start your first validation</Button>
+                <Button variant="outline" onClick={onExample}>See Example</Button>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">

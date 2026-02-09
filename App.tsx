@@ -3,7 +3,6 @@ import type { ViewState, ValidationReport, UserProfile } from './types';
 import { MOCK_REPORT } from './types';
 import { validateIdea } from './services/geminiService';
 import { api } from './services/api'; 
-import { LandingView } from './views/LandingView';
 import { MarketingLandingView } from './views/MarketingLandingView';
 import { InputView } from './views/InputView';
 import { LoadingView } from './views/LoadingView';
@@ -36,7 +35,7 @@ export const App: React.FC = () => {
     // Check URL params for overrides
     const params = new URLSearchParams(window.location.search);
     if (params.get('mode') === 'waitlist') return 'marketing';
-    if (params.get('mode') === 'app') return 'landing';
+    if (params.get('mode') === 'app') return localStorage.getItem('Greenli8_user') ? 'dashboard' : 'auth';
 
     // Check environment variable (set VITE_ENABLE_MARKETING_PAGE=true in Production)
     // if (import.meta.env.VITE_ENABLE_MARKETING_PAGE === 'true' && !localStorage.getItem('Greenli8_user')) {
@@ -191,7 +190,7 @@ export const App: React.FC = () => {
   const handleLogout = () => {
     setUser(null);
     localStorage.removeItem('Greenli8_user');
-    setCurrentView('landing');
+    setCurrentView('marketing');
   };
 
   const handleUpdateProfile = async (data: Partial<UserProfile>) => {
@@ -225,7 +224,7 @@ export const App: React.FC = () => {
     setCredits(1);
     setIsLifetime(false);
     setUser(null);
-    setCurrentView('landing');
+    setCurrentView('marketing');
   };
 
   const handleStart = () => {
@@ -360,7 +359,7 @@ export const App: React.FC = () => {
       {currentView !== 'auth' && currentView !== 'chat' && (
         <nav className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setCurrentView(user ? 'dashboard' : 'landing')}>
+            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setCurrentView(user ? 'dashboard' : 'marketing')}>
               <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center group-hover:bg-slate-800 transition-colors">
                 <span className="text-white font-bold text-lg">V</span>
               </div>
@@ -368,7 +367,7 @@ export const App: React.FC = () => {
             </div>
             
             <div className="flex items-center gap-3 sm:gap-4">
-                {(user || currentView !== 'landing') && (
+                {user && (
                   <div 
                       className={`flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium cursor-pointer transition-colors ${
                           isLifetime ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -436,17 +435,13 @@ export const App: React.FC = () => {
                     </>
                 ) : (
                     <>
-                        {currentView !== 'landing' && (
-                          <>
-                              <button onClick={() => setCurrentView('history')} className="p-2 text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
-                                  <History size={20} />
-                              </button>
-                              <button onClick={() => setCurrentView('help')} className="p-2 text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
-                                  <HelpCircle size={20} />
-                              </button>
-                          </>
-                        )}
-                        <Button size="sm" variant={currentView === 'landing' ? 'primary' : 'outline'} onClick={() => setCurrentView('auth')} className="flex gap-2 ml-2">
+                        <button onClick={() => setCurrentView('history')} className="p-2 text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
+                            <History size={20} />
+                        </button>
+                        <button onClick={() => setCurrentView('help')} className="p-2 text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
+                            <HelpCircle size={20} />
+                        </button>
+                        <Button size="sm" variant="outline" onClick={() => setCurrentView('auth')} className="flex gap-2 ml-2">
                           <LogIn size={16} /> <span className="hidden sm:inline">Log in</span>
                         </Button>
                     </>
@@ -457,16 +452,8 @@ export const App: React.FC = () => {
       )}
 
       <main className={`flex-grow ${currentView === 'chat' ? 'h-screen' : 'py-8 md:py-12'}`}>
-        {currentView === 'landing' && (
-          <LandingView 
-            onStart={handleStart} 
-            onExample={handleExample} 
-            onHistory={() => setCurrentView('history')}
-            hasHistory={history.length > 0}
-          />
-        )}
         {currentView === 'auth' && (
-            <AuthView onLogin={handleLogin} onBack={() => setCurrentView('landing')} />
+            <AuthView onLogin={handleLogin} onBack={() => setCurrentView('marketing')} />
         )}
         {currentView === 'dashboard' && user && (
             <DashboardView 
@@ -475,10 +462,11 @@ export const App: React.FC = () => {
                 onValidateNew={handleStart}
                 onViewHistory={() => setCurrentView('history')}
                 onViewReport={loadReport}
+                onExample={handleExample}
             />
         )}
         {currentView === 'input' && (
-          <InputView onBack={() => setCurrentView(user ? 'dashboard' : 'landing')} onSubmit={handleSubmitIdea} />
+          <InputView onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')} onSubmit={handleSubmitIdea} />
         )}
         {currentView === 'loading' && (
           <LoadingView />
@@ -503,11 +491,11 @@ export const App: React.FC = () => {
                 history={history} 
                 onSelect={loadReport}
                 onClear={() => handleDeleteData()} 
-                onBack={() => setCurrentView(user ? 'dashboard' : 'landing')}
+                onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')}
             />
         )}
         {currentView === 'pricing' && (
-            <PricingView onPurchase={handleSimulatedPurchase} onBack={() => setCurrentView(user ? 'dashboard' : 'landing')} />
+            <PricingView onPurchase={handleSimulatedPurchase} onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')} />
         )}
         {currentView === 'purchase_success' && purchasedPlan && (
             <PurchaseSuccessView plan={purchasedPlan} onContinue={() => setCurrentView('input')} />
@@ -516,7 +504,7 @@ export const App: React.FC = () => {
             <SettingsView 
                 user={user}
                 history={history}
-                onBack={() => setCurrentView(user ? 'dashboard' : 'landing')}
+                onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')}
                 onDeleteData={handleDeleteData}
                 onUpdateProfile={handleUpdateProfile}
                 onLogout={handleLogout}
@@ -525,13 +513,13 @@ export const App: React.FC = () => {
             />
         )}
         {currentView === 'help' && (
-            <HelpView onBack={() => setCurrentView(user ? 'dashboard' : 'landing')} />
+            <HelpView onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')} />
         )}
         {currentView === 'privacy' && (
-            <PrivacyView onBack={() => setCurrentView('landing')} />
+            <PrivacyView onBack={() => setCurrentView('marketing')} />
         )}
         {currentView === 'terms' && (
-            <TermsView onBack={() => setCurrentView('landing')} />
+            <TermsView onBack={() => setCurrentView('marketing')} />
         )}
         {currentView === 'error' && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] px-4 text-center">
@@ -544,7 +532,7 @@ export const App: React.FC = () => {
             </p>
             <div className="flex gap-4">
               <Button onClick={() => setCurrentView('input')}>Try Again</Button>
-              <Button variant="outline" onClick={() => setCurrentView(user ? 'dashboard' : 'landing')}>Go Home</Button>
+              <Button variant="outline" onClick={() => setCurrentView(user ? 'dashboard' : 'marketing')}>Go Home</Button>
             </div>
           </div>
         )}
