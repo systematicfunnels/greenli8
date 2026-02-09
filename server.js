@@ -31,12 +31,19 @@ app.use(cors({
   credentials: true
 }));
 
+// Trust the first proxy (Vercel/Cloudflare/etc)
+app.set('trust proxy', 1);
+
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   limit: 100, // Limit each IP to 100 requests per windowMs
   standardHeaders: 'draft-7',
   legacyHeaders: false,
-  message: "Too many requests, please try again later."
+  message: "Too many requests, please try again later.",
+  validate: {
+    xForwardedForHeader: false,
+    forwardedHeader: false
+  }
 });
 
 // Apply rate limiting to all API routes
