@@ -22,7 +22,7 @@ const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
 app.use(cors());
 
 // Webhook must be defined before express.json() parser
-app.post('/webhook', express.raw({type: 'application/json'}), async (request, response) => {
+app.post('/api/webhook', express.raw({type: 'application/json'}), async (request, response) => {
   const sig = request.headers['stripe-signature'];
   let event;
 
