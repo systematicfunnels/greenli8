@@ -19,7 +19,14 @@ const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-this';
 // Initialize Gemini on Backend
 const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY || 'dummy_api_key' });
 
-app.use(cors());
+const allowedOrigins = process.env.ALLOWED_ORIGINS 
+  ? process.env.ALLOWED_ORIGINS.split(',') 
+  : ['http://localhost:5173'];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 
 // Webhook must be defined before express.json() parser
 app.post('/api/webhook', express.raw({type: 'application/json'}), async (request, response) => {
@@ -143,7 +150,11 @@ app.post('/api/waitlist', async (req, res) => {
     res.json({ success: true, id: entry.id });
   } catch (error) {
     console.error("Waitlist Error:", error);
-    res.status(500).json({ error: "Failed to join waitlist.", details: error.message, stack: error.stack });
+    res.status(500).json({ 
+      error: "Failed to join waitlist.", 
+      details: error.message, 
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    });
   }
 });
 
@@ -462,7 +473,8 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
       where: { email },
       include: { 
         reports: { 
-          orderBy: { createdAt: 'desc' } 
+          orderBy: { createdAt: 'desc' },
+          take: 20
         } 
       }
     });

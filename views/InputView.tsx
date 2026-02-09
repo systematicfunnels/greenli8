@@ -180,8 +180,8 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit }) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
         
-        if (file.size > 20 * 1024 * 1024) {
-            setError("File is too large. Max size is 20MB due to API limits.");
+        if (file.size > 5 * 1024 * 1024) {
+            setError("File is too large. Max size is 5MB due to API limits.");
             return;
         }
 
