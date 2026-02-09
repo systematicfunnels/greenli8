@@ -324,7 +324,7 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
     }
     if (idea) parts.push({ text: idea });
 
-    const modelName = attachment ? 'gemini-2.0-flash-exp' : 'gemini-2.0-flash-thinking-exp-1219';
+    const modelName = attachment ? 'gemini-2.0-flash' : 'gemini-2.0-flash';
 
     const response = await genAI.models.generateContent({
       model: modelName,
