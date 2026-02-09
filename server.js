@@ -111,14 +111,26 @@ app.post('/api/waitlist', async (req, res) => {
             await resend.emails.send({
                 from: 'Greenli8 AI <onboarding@resend.dev>', // Update this with your verified domain later
                 to: email,
-                subject: 'You are on the list! 🚀',
+                subject: "You're on the list! (Wait time: ~48 hours) 🚀",
                 html: `
-                  <div style="font-family: sans-serif; color: #333;">
-                    <h1>Welcome to Greenli8 AI</h1>
-                    <p>You have successfully joined our waitlist. We are building the smartest way to validate startup ideas.</p>
-                    <p>We'll notify you as soon as your spot opens up.</p>
+                  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; line-height: 1.6; color: #333;">
+                    
+                    <h2 style="color: #0f172a;">You're on the list!</h2>
+                    
+                    <p>Thanks for joining. We are letting in <strong>50 founders a day</strong> to ensure server stability.</p>
+                    
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; padding: 16px; border-radius: 8px; margin: 24px 0;">
+                        <p style="margin: 0; color: #166534; font-weight: 500;">🚀 <strong>Want to skip the line?</strong></p>
+                        <p style="margin: 8px 0 0 0; font-size: 14px; color: #15803d;">
+                            Reply to this email right now with your <strong>#1 startup idea</strong> (just one sentence). 
+                            I'll personally review it and bump you to the front of the queue.
+                        </p>
+                    </div>
+
+                    <p>Otherwise, keep an eye on your inbox. We'll send your access link in about 2 days.</p>
+                    
                     <br/>
-                    <p>Cheers,<br/>The Greenli8 Team</p>
+                    <p style="color: #64748b; font-size: 14px;">Cheers,<br/>The Greenli8 Team</p>
                   </div>
                 `
             });
