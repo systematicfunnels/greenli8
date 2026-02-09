@@ -143,7 +143,7 @@ app.post('/api/waitlist', async (req, res) => {
     res.json({ success: true, id: entry.id });
   } catch (error) {
     console.error("Waitlist Error:", error);
-    res.status(500).json({ error: "Failed to join waitlist." });
+    res.status(500).json({ error: "Failed to join waitlist.", details: error.message, stack: error.stack });
   }
 });
 
