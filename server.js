@@ -525,7 +525,10 @@ app.get('/api/verify-payment', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+// Only start the server if we're not in a serverless environment (Vercel)
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
+}
 
 // Export for Vercel Serverless
 export default app;
