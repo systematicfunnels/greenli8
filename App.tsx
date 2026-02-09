@@ -37,12 +37,14 @@ export const App: React.FC = () => {
     if (params.get('mode') === 'app') return 'landing';
 
     // Check environment variable (set VITE_ENABLE_MARKETING_PAGE=true in Production)
-    if (import.meta.env.VITE_ENABLE_MARKETING_PAGE === 'true' && !localStorage.getItem('Greenli8_user')) {
-        return 'marketing';
-    }
+    // if (import.meta.env.VITE_ENABLE_MARKETING_PAGE === 'true' && !localStorage.getItem('Greenli8_user')) {
+    //     return 'marketing';
+    // }
 
     if (localStorage.getItem('Greenli8_user')) return 'dashboard';
-    return 'landing';
+    
+    // Default to Marketing/Waitlist page for visitors
+    return 'marketing';
   });
 
   // --- Data State ---

@@ -47,6 +47,10 @@ export const MarketingLandingView: React.FC<MarketingLandingViewProps> = ({ onGo
             <span className="font-bold text-xl tracking-tight">Greenli8</span>
             <span className="ml-2 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 text-xs font-bold border border-emerald-500/20">BETA</span>
         </div>
+        
+        <Button variant="outline" size="sm" onClick={onGoToApp} className="border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 hover:border-slate-600">
+            Login
+        </Button>
       </nav>
 
       {/* Hero Section */}
