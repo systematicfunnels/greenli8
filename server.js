@@ -9,15 +9,15 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Resend } from 'resend';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 const prisma = new PrismaClient();
-const resend = new Resend(process.env.RESEND_API_KEY);
+const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789');
 const app = express();
 const PORT = process.env.PORT || 4242;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-this';
 
 // Initialize Gemini on Backend
-const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY || 'dummy_api_key' });
 
 app.use(cors());
 
