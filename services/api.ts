@@ -137,5 +137,9 @@ export const api = {
     });
     if (!res.ok) throw new Error('Failed to join waitlist');
     return res.json();
+  },
+
+  verifyPayment: async (sessionId: string) => {
+      return fetch(`${API_URL}/verify-payment?session_id=${sessionId}`);
   }
 };

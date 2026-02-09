@@ -130,7 +130,7 @@ export const App: React.FC = () => {
   const verifyBackendPayment = async (sessionId: string) => {
     setIsVerifyingPayment(true);
     try {
-        const response = await fetch(`http://localhost:4242/api/verify-payment?session_id=${sessionId}`);
+        const response = await api.verifyPayment(sessionId);
         if (!response.ok) throw new Error(`Server returned ${response.status}`);
         
         const data = await response.json();
