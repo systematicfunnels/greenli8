@@ -17,6 +17,7 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789');
 const app = express();
 const PORT = process.env.PORT || 4242;
 const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-this';
+const EMAIL_FROM = process.env.EMAIL_FROM || 'Greenli8 AI <onboarding@resend.dev>';
 
 // Initialize Gemini on Backend
 const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY || 'dummy_api_key' });
@@ -129,7 +130,7 @@ app.post('/api/waitlist', async (req, res) => {
     try {
         if (process.env.RESEND_API_KEY) {
             await resend.emails.send({
-                from: 'Greenli8 AI <onboarding@resend.dev>', // Update this with your verified domain later
+                from: EMAIL_FROM,
                 to: email,
                 subject: "You're on the list! (Wait time: ~48 hours) 🚀",
                 html: `
@@ -191,8 +192,10 @@ app.post('/api/auth/google', async (req, res) => {
     const { email, name, sub: googleId } = payload;
 
     let user = await prisma.user.findUnique({ where: { email } });
+    let isNewUser = false;
 
     if (!user) {
+      isNewUser = true;
       user = await prisma.user.create({
         data: {
           email,
@@ -217,6 +220,26 @@ app.post('/api/auth/google', async (req, res) => {
     }
 
     const jwtToken = jwt.sign({ email: user.email, id: user.id }, JWT_SECRET, { expiresIn: '7d' });
+    
+    if (isNewUser && process.env.RESEND_API_KEY) {
+        try {
+            await resend.emails.send({
+                from: EMAIL_FROM,
+                to: email,
+                subject: "Welcome to Greenli8! 🚀",
+                html: `
+                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                    <h2 style="color: #0f172a;">Welcome to Greenli8!</h2>
+                    <p>Thanks for signing up. You've taken the first step towards validating your startup ideas.</p>
+                    <p>You have <strong>3 free validation credits</strong> to get started.</p>
+                    <br/>
+                    <p style="color: #64748b; font-size: 14px;">Cheers,<br/>The Greenli8 Team</p>
+                  </div>
+                `
+            });
+        } catch (e) { console.error("Failed to send welcome email:", e); }
+    }
+
     const { password: _, ...userWithoutPassword } = user;
     res.json({ user: userWithoutPassword, token: jwtToken });
 
@@ -255,6 +278,25 @@ app.post('/api/auth/signup', async (req, res) => {
 
     const token = jwt.sign({ email: user.email, id: user.id }, JWT_SECRET, { expiresIn: '7d' });
     
+    if (process.env.RESEND_API_KEY) {
+        try {
+            await resend.emails.send({
+                from: EMAIL_FROM,
+                to: email,
+                subject: "Welcome to Greenli8! 🚀",
+                html: `
+                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                    <h2 style="color: #0f172a;">Welcome to Greenli8!</h2>
+                    <p>Thanks for signing up. You've taken the first step towards validating your startup ideas.</p>
+                    <p>You have <strong>3 free validation credits</strong> to get started.</p>
+                    <br/>
+                    <p style="color: #64748b; font-size: 14px;">Cheers,<br/>The Greenli8 Team</p>
+                  </div>
+                `
+            });
+        } catch (e) { console.error("Failed to send welcome email:", e); }
+    }
+
     // Don't return password
     const { password: _, ...userWithoutPassword } = user;
     res.json({ user: userWithoutPassword, token });
