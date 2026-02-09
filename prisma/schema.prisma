@@ -24,6 +24,7 @@ model User {
   preferences Json?    // Stores { emailNotifications, marketingEmails, theme }
   
   reports     Report[]
+  transactions CreditTransaction[]
 }
 
 model Report {
@@ -39,6 +40,25 @@ model Report {
   fullReportData  Json     // Stores the complete JSON from Gemini
   
   createdAt       DateTime @default(now())
+  feedback        Feedback[]
+}
+
+model CreditTransaction {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    Int      // Positive for purchase, negative for usage
+  reason    String   // e.g., "Report Generation", "Purchase: Pro Plan"
+  createdAt DateTime @default(now())
+}
+
+model Feedback {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  rating    Int      // 1 for Thumbs Down, 5 for Thumbs Up (or simple binary)
+  comment   String?
+  createdAt DateTime @default(now())
 }
 
 model Waitlist {

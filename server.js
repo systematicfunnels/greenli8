@@ -8,6 +8,8 @@ import { GoogleGenAI, Type } from "@google/genai";
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Resend } from 'resend';
+import { rateLimit } from 'express-rate-limit';
+import { SYSTEM_PROMPTS } from './config/prompts.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 const prisma = new PrismaClient();
@@ -27,6 +29,17 @@ app.use(cors({
   origin: allowedOrigins,
   credentials: true
 }));
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  limit: 100, // Limit each IP to 100 requests per windowMs
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: "Too many requests, please try again later."
+});
+
+// Apply rate limiting to all API routes
+app.use('/api', limiter);
 
 // Webhook must be defined before express.json() parser
 app.post('/api/webhook', express.raw({type: 'application/json'}), async (request, response) => {
@@ -298,11 +311,7 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
     }
 
     // 2. Perform Analysis
-    const systemPrompt = `
-      You are an expert startup advisor and product manager. Your goal is to provide honest, clear, and encouraging feedback to founders.
-      Do not use hype. Do not use investor jargon. Be direct but kind.
-      Analyze the user's startup idea. Return a structured validation report in JSON.
-    `;
+    const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
 
     const parts = [];
     if (attachment) {
@@ -398,12 +407,9 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     try {
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash-exp",
-            systemInstruction: `
-              Context: You are discussing a startup idea.
-              Idea: ${context.originalIdea}
-              Report Summary: ${JSON.stringify(context.report)}
-              Role: Helpful Co-founder.
-            `
+            systemInstruction: SYSTEM_PROMPTS.CHAT_COFOUNDER
+                .replace('{{originalIdea}}', context.originalIdea)
+                .replace('{{reportSummary}}', JSON.stringify(context.report))
         });
 
         const result = await model.generateContent(message);

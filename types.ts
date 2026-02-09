@@ -1,4 +1,4 @@
-export type ViewState = 'landing' | 'input' | 'loading' | 'report' | 'error' | 'history' | 'pricing' | 'settings' | 'auth' | 'dashboard' | 'help' | 'purchase_success' | 'chat' | 'marketing';
+export type ViewState = 'landing' | 'input' | 'loading' | 'report' | 'error' | 'history' | 'pricing' | 'settings' | 'auth' | 'dashboard' | 'help' | 'purchase_success' | 'chat' | 'marketing' | 'privacy' | 'terms';
 
 export interface UserProfile {
   id: string;

@@ -16,6 +16,8 @@ import { DashboardView } from './views/DashboardView';
 import { HelpView } from './views/HelpView';
 import { ChatView } from './views/ChatView';
 import { PurchaseSuccessView } from './views/PurchaseSuccessView';
+import { PrivacyView } from './views/PrivacyView';
+import { TermsView } from './views/TermsView';
 import { Footer } from './components/Footer';
 import { Modal } from './components/Modal';
 import { AlertCircle, History, Settings, HelpCircle, LogIn, LayoutDashboard, LogOut, User as UserIcon, ChevronDown, Menu, Loader2 } from 'lucide-react';
@@ -60,8 +62,6 @@ export const App: React.FC = () => {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
   const [purchasedPlan, setPurchasedPlan] = useState<'single' | 'lifetime' | 'maker' | 'pro' | null>(null);
-  const [isPrivacyOpen, setPrivacyOpen] = useState(false);
-  const [isTermsOpen, setTermsOpen] = useState(false);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -527,6 +527,12 @@ export const App: React.FC = () => {
         {currentView === 'help' && (
             <HelpView onBack={() => setCurrentView(user ? 'dashboard' : 'landing')} />
         )}
+        {currentView === 'privacy' && (
+            <PrivacyView onBack={() => setCurrentView('landing')} />
+        )}
+        {currentView === 'terms' && (
+            <TermsView onBack={() => setCurrentView('landing')} />
+        )}
         {currentView === 'error' && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] px-4 text-center">
             <div className="bg-rose-50 p-4 rounded-full mb-4">
@@ -546,28 +552,11 @@ export const App: React.FC = () => {
 
       {currentView !== 'chat' && (
         <Footer 
-            onOpenPrivacy={() => setPrivacyOpen(true)} 
-            onOpenTerms={() => setTermsOpen(true)}
+            onOpenPrivacy={() => setCurrentView('privacy')} 
+            onOpenTerms={() => setCurrentView('terms')}
             onOpenWaitlist={() => setCurrentView('marketing')}
         />
       )}
-
-      <Modal isOpen={isPrivacyOpen} onClose={() => setPrivacyOpen(false)} title="Privacy Policy">
-        <div className="space-y-4 text-slate-600 leading-relaxed text-sm">
-            <p><strong>Effective Date:</strong> {new Date().toLocaleDateString()}</p>
-            <p>Your privacy is important to us.</p>
-            <h4 className="font-bold text-slate-900">Data Storage</h4>
-            <p>If logged in, your data is securely stored in our encrypted database. Guest data remains on your device.</p>
-        </div>
-      </Modal>
-
-      <Modal isOpen={isTermsOpen} onClose={() => setTermsOpen(false)} title="Terms of Service">
-        <div className="space-y-4 text-slate-600 leading-relaxed text-sm">
-            <p>By using Greenli8, you agree to these terms.</p>
-            <h4 className="font-bold text-slate-900">Usage</h4>
-            <p>This tool provides AI-generated feedback. We are not responsible for business decisions made based on this output.</p>
-        </div>
-      </Modal>
     </div>
   );
 };
