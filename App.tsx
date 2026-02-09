@@ -352,7 +352,7 @@ export const App: React.FC = () => {
 
   // --- Marketing View Intercept ---
   if (currentView === 'marketing') {
-      return <MarketingLandingView onGoToApp={() => setCurrentView('landing')} />;
+      return <MarketingLandingView onGoToApp={() => setCurrentView('auth')} />;
   }
 
   return (
