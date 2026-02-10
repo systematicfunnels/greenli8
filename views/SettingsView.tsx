@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
-import { Loader2, FileArchive } from 'lucide-react';
+import { Loader2, FileArchive, Key } from 'lucide-react';
 import { UserProfile, ValidationReport } from '../types';
 import { jsPDF } from "jspdf";
 import JSZip from "jszip";
@@ -16,6 +16,7 @@ interface SettingsViewProps {
   onLogout: () => void;
   credits: number;
   isLifetime: boolean;
+  onNavigateToApiKeys?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
@@ -26,7 +27,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateProfile,
   onLogout,
   credits,
-  isLifetime 
+  isLifetime,
+  onNavigateToApiKeys 
 }) => {
   // Profile State
   const [name, setName] = useState(user?.name || '');
@@ -38,7 +40,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [marketingEmails, setMarketingEmails] = useState(user?.preferences?.marketingEmails ?? false);
   
   // UI State
-  const [activeTab, setActiveTab] = useState<'general' | 'profile' | 'notifications'>('general');
+  const [activeTab, setActiveTab] = useState<'general' | 'profile' | 'notifications' | 'api_keys'>('general');
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [_passwordResetSent, _setPasswordResetSent] = useState(false);
@@ -182,6 +184,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         <button onClick={() => setActiveTab('general')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'general' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500'}`}>General</button>
         <button onClick={() => setActiveTab('profile')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'profile' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500'}`}>Profile</button>
         <button onClick={() => setActiveTab('notifications')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'notifications' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500'}`}>Notifications</button>
+        <button onClick={() => setActiveTab('api_keys')} className={`px-4 py-2 text-sm font-medium border-b-2 ${activeTab === 'api_keys' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500'}`}>API Keys</button>
       </div>
 
       <div className="space-y-6">
@@ -279,6 +282,30 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <div className={`w-12 h-6 rounded-full relative transition-colors ${marketingEmails ? 'bg-slate-900' : 'bg-slate-200'}`}>
                         <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full transition-transform ${marketingEmails ? 'translate-x-6' : ''}`} />
                     </div>
+                 </div>
+              </div>
+           </Card>
+        )}
+
+        {activeTab === 'api_keys' && (
+           <Card title="Custom API Keys">
+              <div className="space-y-4">
+                 <p className="text-sm text-slate-600 mb-4">
+                    Add your own AI provider API keys for better reliability and control. Your keys are stored securely and used only for your requests.
+                 </p>
+                 
+                 <Button 
+                    onClick={onNavigateToApiKeys}
+                    className="w-full gap-2"
+                 >
+                    <Key size={16} />
+                    Manage API Keys
+                 </Button>
+                 
+                 <div className="text-xs text-slate-500 space-y-1">
+                    <p>• Supports Google Gemini, OpenRouter, and Sarvam AI</p>
+                    <p>• Custom keys override environment keys</p>
+                    <p>• Keys are encrypted and stored securely</p>
                  </div>
               </div>
            </Card>

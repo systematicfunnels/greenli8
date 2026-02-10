@@ -1,4 +1,4 @@
-export type ViewState = 'input' | 'loading' | 'report' | 'error' | 'history' | 'pricing' | 'settings' | 'auth' | 'dashboard' | 'help' | 'purchase_success' | 'chat' | 'marketing' | 'privacy' | 'terms';
+export type ViewState = 'input' | 'loading' | 'report' | 'error' | 'history' | 'pricing' | 'settings' | 'auth' | 'dashboard' | 'help' | 'purchase_success' | 'chat' | 'marketing' | 'privacy' | 'terms' | 'custom_api_keys';
 
 export interface UserProfile {
   id: string;
@@ -12,6 +12,11 @@ export interface UserProfile {
     emailNotifications: boolean;
     marketingEmails: boolean;
     theme: 'light' | 'dark';
+    customApiKeys?: {
+      gemini?: string;
+      openRouter?: string;
+      sarvam?: string;
+    };
   };
 }
 

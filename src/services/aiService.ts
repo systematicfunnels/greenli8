@@ -44,24 +44,30 @@ const parseResponse = (text: string): any => {
 };
 
 /**
- * Core analysis service with multi-provider failover
+ * Core analysis service with multi-provider failover and custom API key support
  */
-export const analyzeIdea = async (idea: string, attachment: { mimeType: string; data: string } | null = null) => {
+export const analyzeIdea = async (idea: string, attachment: { mimeType: string; data: string } | null = null, customApiKeys?: { gemini?: string; openRouter?: string; sarvam?: string }) => {
   const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
   const startTime = Date.now();
   const GLOBAL_TIMEOUT = 8500; // 8.5 seconds total for all providers
 
   const getRemainingTimeout = () => Math.max(1000, GLOBAL_TIMEOUT - (Date.now() - startTime));
 
-  console.log(`[AI] Starting analysis. Keys present: Gemini=${!!env.geminiKey}, OpenRouter=${!!env.openRouterKey}, Sarvam=${!!env.sarvamKey}`);
+  // Use custom keys if provided, fallback to environment keys
+  const geminiKey = customApiKeys?.gemini || env.geminiKey;
+  const openRouterKey = customApiKeys?.openRouter || env.openRouterKey;
+  const sarvamKey = customApiKeys?.sarvam || env.sarvamKey;
+
+  console.log(`[AI] Starting analysis. Keys present: Gemini=${!!geminiKey}, OpenRouter=${!!openRouterKey}, Sarvam=${!!sarvamKey}`);
   console.log(`[AI] Input length: ${idea.length} chars, Attachment: ${attachment ? 'Yes' : 'No'}`);
+  console.log(`[AI] Using custom keys: ${customApiKeys ? 'Yes' : 'No'}`);
 
   // 1. Try Gemini (Primary - Supports Attachments)
-  if (env.geminiKey) {
+  if (geminiKey) {
     try {
       console.log('[AI] Attempting Gemini...');
       const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: env.geminiKey });
+      const ai = new GoogleGenAI({ apiKey: geminiKey });
 
       return await callWithTimeout(async (_signal) => {
         const parts: any[] = [];
@@ -117,7 +123,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
   }
 
   // 2. Try OpenRouter (Reliability Fallback)
-  if (env.openRouterKey) {
+  if (openRouterKey) {
     console.log('[AI] Attempting OpenRouter...');
     for (const model of OPENROUTER_MODELS) {
       if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) {
@@ -131,10 +137,10 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
           const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${env.openRouterKey}`,
+              'Authorization': `Bearer ${openRouterKey}`,
               'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://greenli8.com',
-              'X-Title': 'Greenli8 AI'
+              'HTTP-Referer': 'https://greenli8.vercel.app',
+              'X-Title': 'Greenli8 AI Analysis'
             },
             body: JSON.stringify({
               model: model,
@@ -158,14 +164,14 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
   }
 
   // 3. Try Sarvam (Final Fallback - Text only)
-  if (!attachment && env.sarvamKey) {
+  if (!attachment && sarvamKey) {
     try {
       console.log('[AI] Attempting Sarvam...');
       return await callWithTimeout(async (signal) => {
         const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
           method: 'POST',
           headers: {
-            'api-subscription-key': env.sarvamKey,
+            'api-subscription-key': sarvamKey,
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({

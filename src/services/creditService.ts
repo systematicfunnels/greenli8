@@ -8,7 +8,13 @@ export const useCredit = async (email: string) => {
   return await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ 
       where: { email },
-      select: { id: true, email: true, credits: true, isPro: true }
+      select: { 
+        id: true, 
+        email: true, 
+        credits: true, 
+        isPro: true,
+        preferences: true
+      }
     });
 
     if (!user) {
@@ -27,7 +33,14 @@ export const useCredit = async (email: string) => {
     if (!user.isPro) {
       const updatedUser = await tx.user.update({
         where: { id: user.id },
-        data: { credits: { decrement: 1 } }
+        data: { credits: { decrement: 1 } },
+        select: {
+          id: true,
+          email: true,
+          credits: true,
+          isPro: true,
+          preferences: true
+        }
       });
       logger.info(`[Credits] Deducted 1 credit from ${email}. Remaining: ${updatedUser.credits}`);
       return updatedUser;

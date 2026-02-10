@@ -18,6 +18,8 @@ import { ReportView } from './views/ReportView';
 
 import { HistoryView } from './views/HistoryView';
 
+import { CustomApiKeysView } from './views/CustomApiKeysView';
+
 import { PricingView } from './views/PricingView';
 
 import { SettingsView } from './views/SettingsView';
@@ -1062,8 +1064,18 @@ export const App: React.FC = () => {
 
                 isLifetime={isLifetime}
 
+                onNavigateToApiKeys={() => setCurrentView('custom_api_keys')}
+
             />
 
+        )}
+
+        {currentView === 'custom_api_keys' && user && (
+            <CustomApiKeysView 
+                user={user}
+                onBack={() => setCurrentView('settings')}
+                onUpdateProfile={handleUpdateProfile}
+            />
         )}
 
         {currentView === 'help' && (

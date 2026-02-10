@@ -29,10 +29,13 @@ router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Respons
     user = await useCredit(req.user.email);
     creditDeducted = true;
 
-    // 2. Run AI Analysis
-    const result = await analyzeIdea(idea, attachment as any);
+    // 2. Get user's custom API keys if available
+    const customApiKeys = (user.preferences as any)?.customApiKeys;
 
-    // 3. Save report
+    // 3. Run AI Analysis with custom keys
+    const result = await analyzeIdea(idea, attachment as any, customApiKeys);
+
+    // 4. Save report
     await prisma.report.create({
       data: {
         userId: user.id,
@@ -49,7 +52,7 @@ router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Respons
   } catch (error: any) {
     console.error(`[Analysis] AI failed for user ${req.user?.email}:`, error.message);
     
-    // 4. Refund credit if deduction happened but AI/Save failed
+    // 5. Refund credit if deduction happened but AI/Save failed
     if (creditDeducted && req.user?.email) {
       try {
         await addCredits(req.user.email, 1);
