@@ -33,7 +33,7 @@ app.use(helmet({
     }
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: { policy: "unsafe-none" },
+  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 

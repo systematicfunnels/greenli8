@@ -48,37 +48,73 @@ const parseResponse = (text: string): any => {
  */
 export const analyzeIdea = async (idea: string, attachment: { mimeType: string; data: string } | null = null) => {
   const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
+  const startTime = Date.now();
+  const GLOBAL_TIMEOUT = 8500; // 8.5 seconds total for all providers
 
-  // 1. Try Sarvam (Text only)
-  if (!attachment && env.sarvamKey) {
+  const getRemainingTimeout = () => Math.max(1000, GLOBAL_TIMEOUT - (Date.now() - startTime));
+
+  // 1. Try Gemini (Primary - Supports Attachments)
+  if (env.geminiKey) {
     try {
       return await callWithTimeout(async (signal) => {
-        const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'api-subscription-key': env.sarvamKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'sarvam-m',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: idea }
-            ]
-          }),
-          signal
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: env.geminiKey });
+
+        const parts: any[] = [];
+        if (attachment) {
+          parts.push({
+            inlineData: {
+              mimeType: attachment.mimeType,
+              data: attachment.data
+            }
+          });
+        }
+        parts.push({ text: idea });
+
+        const result = await ai.models.generateContent({
+          model: 'gemini-2.0-flash',
+          contents: [{ role: 'user', parts }],
+          config: {
+            systemInstruction: systemPrompt,
+            responseMimeType: "application/json",
+            abortSignal: signal,
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
+                oneLineTakeaway: { type: Type.STRING },
+                marketReality: { type: Type.STRING },
+                pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+                cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                competitors: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      differentiation: { type: Type.STRING }
+                    }
+                  }
+                },
+                viabilityScore: { type: Type.NUMBER },
+                nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+              }
+            }
+          }
         });
-        const data = await res.json() as any;
-        return parseResponse(data.choices[0].message.content);
-      });
-    } catch (_e) {
-      logger.warn('Sarvam AI failed, trying next...');
+        
+        return parseResponse(result.text || '');
+      }, getRemainingTimeout());
+    } catch (_e: any) {
+      logger.warn(`Gemini primary failed: ${_e.message}`);
     }
   }
 
-  // 2. Try OpenRouter (Failover models)
+  // 2. Try OpenRouter (Reliability Fallback)
   if (env.openRouterKey) {
     for (const model of OPENROUTER_MODELS) {
+      if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) break; // Stop if less than 2s left
+
       try {
         return await callWithTimeout(async (signal) => {
           const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -101,63 +137,37 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
           const data = await res.json() as any;
           if (!res.ok) throw new Error(data.error?.message || 'OpenRouter error');
           return parseResponse(data.choices[0].message.content);
-        });
-      } catch (_e) {
-        logger.warn(`OpenRouter model ${model} failed, trying next...`);
+        }, getRemainingTimeout());
+      } catch (_e: any) {
+        logger.warn(`OpenRouter model ${model} failed: ${_e.message || 'Unknown error'}`);
       }
     }
   }
 
-  // 3. Fallback to Gemini (Supports Attachments)
-  if (env.geminiKey) {
+  // 3. Try Sarvam (Final Fallback - Text only)
+  if (!attachment && env.sarvamKey) {
     try {
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: env.geminiKey });
-
-      const parts: any[] = [];
-      if (attachment) {
-        parts.push({
-          inlineData: {
-            mimeType: attachment.mimeType,
-            data: attachment.data
-          }
+      return await callWithTimeout(async (signal) => {
+        const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'api-subscription-key': env.sarvamKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'sarvam-m',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: idea }
+            ]
+          }),
+          signal
         });
-      }
-      parts.push({ text: idea });
-
-      const result = await (ai.models as any).generateContent({
-        model: 'gemini-2.0-flash',
-        systemInstruction: { parts: [{ text: systemPrompt }] },
-        contents: [{ role: 'user', parts }],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
-              oneLineTakeaway: { type: Type.STRING },
-              marketReality: { type: Type.STRING },
-              pros: { type: Type.ARRAY, items: { type: Type.STRING } },
-              cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-              competitors: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING },
-                    differentiation: { type: Type.STRING }
-                  }
-                }
-              },
-              viabilityScore: { type: Type.NUMBER },
-              nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
-            }
-          }
-        }
-      });
-      return parseResponse(result.text || '');
+        const data = await res.json() as any;
+        return parseResponse(data.choices[0].message.content);
+      }, getRemainingTimeout());
     } catch (_e: any) {
-      logger.error('Gemini fallback failed:', _e.message);
+      logger.warn(`Sarvam AI failed: ${_e.message || 'Unknown error'}`);
     }
   }
 
@@ -173,7 +183,7 @@ export const chatWithAI = async (message: string, context: { originalIdea: strin
   const { GoogleGenAI } = await import('@google/genai');
   const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
-  const result = await (ai.models as any).generateContent({
+  const result = await ai.models.generateContent({
     model: 'gemini-2.0-flash',
     contents: [
       {
@@ -191,5 +201,5 @@ export const chatWithAI = async (message: string, context: { originalIdea: strin
     ],
   });
 
-  return result.text;
+  return result.text || '';
 };
