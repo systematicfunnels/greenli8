@@ -71,40 +71,23 @@ function initializePrisma() {
     const prisma = new PrismaClient({
       log: process.env.NODE_ENV === 'development' 
         ? ['query', 'error', 'warn']
-        : ['error'],
-      // Increase connection pool size and timeouts for production
-      datasources: {
-        db: {
-          url: process.env.DATABASE_URL
-        }
-      }
+        : ['error']
     });
     
-    // Add retry logic for initial connection
-    let retryCount = 0;
-    const maxRetries = 3;
+    // Test connection with timeout
+    const connectPromise = prisma.$connect();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database connection timeout')), 5000)
+    );
 
-    const connectWithRetry = async () => {
-      try {
-        const connectPromise = prisma.$connect();
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Database connection timeout')), 10000)
-        );
-
-        await Promise.race([connectPromise, timeoutPromise]);
+    Promise.race([connectPromise, timeoutPromise])
+      .then(() => {
         console.log('✅ Database connected successfully');
-      } catch (err) {
-        if (retryCount < maxRetries) {
-          retryCount++;
-          console.warn(`Database connection attempt ${retryCount} failed. Retrying in 2s...`);
-          setTimeout(connectWithRetry, 2000);
-        } else {
-          console.error('Database connection failed after retries:', err.message);
-        }
-      }
-    };
-
-    connectWithRetry();
+      })
+      .catch(err => {
+        console.error('Database connection failed or timed out:', err.message);
+        // Don't exit process here, allow app to handle 503 on requests
+      });
     
     return prisma;
   } catch (error) {
