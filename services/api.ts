@@ -179,6 +179,18 @@ export const api = {
   },
 
   verifyPayment: async (sessionId: string) => {
-      return fetch(`${API_URL}/verify-payment?session_id=${sessionId}`);
+      const res = await fetch(`${API_URL}/verify-payment?session_id=${sessionId}`);
+      if (!res.ok) {
+          let errorMessage = 'Payment verification failed';
+          try {
+              const err = await res.json();
+              errorMessage = err.error || errorMessage;
+          } catch (e) {
+              const text = await res.text();
+              errorMessage = text.slice(0, 100) || res.statusText;
+          }
+          throw new Error(errorMessage);
+      }
+      return res;
   }
 };
