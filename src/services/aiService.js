@@ -1,0 +1,188 @@
+import env from '../config/env.js';
+import logger from '../utils/logger.js';
+import { SYSTEM_PROMPTS } from '../../config/prompts.js';
+import { Type } from "@google/genai";
+
+const OPENROUTER_MODELS = [
+  "google/gemini-2.0-flash-lite-preview-02-05:free",
+  "google/gemini-2.0-flash-exp:free",
+  "deepseek/deepseek-chat:free",
+  "mistralai/mistral-7b-instruct:free",
+  "openrouter/auto"
+];
+
+/**
+ * Utility to wrap a promise with a timeout using AbortController
+ */
+const callWithTimeout = async (fn, timeoutMs = 45000) => {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const result = await fn(controller.signal);
+    clearTimeout(id);
+    return result;
+  } catch (err) {
+    clearTimeout(id);
+    throw err;
+  }
+};
+
+/**
+ * Parses AI response text for JSON
+ */
+const parseResponse = (text) => {
+  try {
+    return JSON.parse(text);
+  } catch {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Invalid AI response format");
+    return JSON.parse(jsonMatch[0]);
+  }
+};
+
+/**
+ * Core analysis service with multi-provider failover
+ */
+export const analyzeIdea = async (idea, attachment = null) => {
+  const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
+
+  // 1. Try Sarvam (Text only)
+  if (!attachment && env.sarvamKey) {
+    try {
+      return await callWithTimeout(async (signal) => {
+        const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'api-subscription-key': env.sarvamKey,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            model: 'sarvam-m',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: idea }
+            ]
+          }),
+          signal
+        });
+        const data = await res.json();
+        return parseResponse(data.choices[0].message.content);
+      });
+    } catch (e) {
+      logger.warn('Sarvam AI failed, trying next...');
+    }
+  }
+
+  // 2. Try OpenRouter (Failover models)
+  if (env.openRouterKey) {
+    for (const model of OPENROUTER_MODELS) {
+      try {
+        return await callWithTimeout(async (signal) => {
+          const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.openRouterKey}`,
+              'Content-Type': 'application/json',
+              'HTTP-Referer': 'https://greenli8.com',
+              'X-Title': 'Greenli8 AI'
+            },
+            body: JSON.stringify({
+              model: model,
+              messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: idea }
+              ]
+            }),
+            signal
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error?.message || 'OpenRouter error');
+          return parseResponse(data.choices[0].message.content);
+        });
+      } catch (e) {
+        logger.warn(`OpenRouter model ${model} failed, trying next...`);
+      }
+    }
+  }
+
+  // 3. Fallback to Gemini (Supports Attachments)
+  if (env.geminiKey) {
+    try {
+      const { GoogleGenAI } = await import('@google/genai');
+      const genAI = new GoogleGenAI(env.geminiKey);
+      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+      const parts = [];
+      if (attachment) {
+        parts.push({
+          inlineData: {
+            mimeType: attachment.mimeType,
+            data: attachment.data
+          }
+        });
+      }
+      parts.push({ text: idea });
+
+      const result = await model.generateContent({
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
+              oneLineTakeaway: { type: Type.STRING },
+              marketReality: { type: Type.STRING },
+              pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+              cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+              competitors: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    differentiation: { type: Type.STRING }
+                  }
+                }
+              },
+              viabilityScore: { type: Type.NUMBER },
+              nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
+          }
+        }
+      });
+      return parseResponse(result.response.text());
+    } catch (e) {
+      logger.error('Gemini fallback failed:', e.message);
+    }
+  }
+
+  throw new Error('All AI providers failed. Please try again in a few minutes.');
+};
+
+/**
+ * Chat service for follow-up questions
+ */
+export const chatWithAI = async (message, context) => {
+  if (!env.geminiKey) throw new Error('AI not configured');
+  
+  const { GoogleGenAI } = await import('@google/genai');
+  const genAI = new GoogleGenAI(env.geminiKey);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  const chat = model.startChat({
+    history: [
+      {
+        role: "user",
+        parts: [{ text: `You previously analyzed this idea: "${context.originalIdea}". Here is the report you generated: ${JSON.stringify(context.report)}. Keep this context in mind.` }],
+      },
+      {
+        role: "model",
+        parts: [{ text: "Understood. I have the context of the idea and the previous analysis. How can I help you further?" }],
+      }
+    ],
+  });
+
+  const result = await chat.sendMessage(message);
+  return result.response.text();
+};
