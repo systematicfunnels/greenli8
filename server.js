@@ -29,7 +29,7 @@ if (!process.env.API_KEY) {
     console.error("FATAL: API_KEY (Gemini) is not defined.");
     process.exit(1);
 }
-const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
+const genAI = new GoogleGenAI(process.env.API_KEY);
 
 // Initialize Sarvam AI config
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
