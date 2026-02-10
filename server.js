@@ -52,6 +52,7 @@ validateEnvironment();
 // Initialize Services with Error Handling
 function initializeStripe() {
   try {
+    if (!process.env.STRIPE_SECRET_KEY) return null;
     return new Stripe(process.env.STRIPE_SECRET_KEY, {
       apiVersion: '2023-10-16',
       appInfo: {
@@ -61,7 +62,7 @@ function initializeStripe() {
     });
   } catch (error) {
     console.error('Failed to initialize Stripe:', error);
-    throw error;
+    return null;
   }
 }
 
@@ -73,13 +74,20 @@ function initializePrisma() {
         : ['error']
     });
     
-    // Test connection
-    prisma.$connect().then(() => {
-      console.log('✅ Database connected successfully');
-    }).catch(err => {
-      console.error('Database connection failed:', err);
-      process.exit(1);
-    });
+    // Test connection with timeout
+    const connectPromise = prisma.$connect();
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Database connection timeout')), 5000)
+    );
+
+    Promise.race([connectPromise, timeoutPromise])
+      .then(() => {
+        console.log('✅ Database connected successfully');
+      })
+      .catch(err => {
+        console.error('Database connection failed or timed out:', err.message);
+        // Don't exit process here, allow app to handle 503 on requests
+      });
     
     return prisma;
   } catch (error) {
@@ -476,16 +484,24 @@ const authenticateToken = (req, res, next) => {
     return res.status(401).json({ error: "Authentication token required" });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ 
-        error: "Invalid or expired token",
-        code: "INVALID_TOKEN"
-      });
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    if (!user || !user.id || !user.email) {
+      throw new Error('Invalid token payload');
     }
     req.user = user;
     next();
-  });
+  } catch (err) {
+    console.error('JWT Verification Error:', err.message);
+    const message = err.name === 'TokenExpiredError' 
+      ? "Your session has expired. Please login again." 
+      : "Invalid authentication token";
+    
+    return res.status(403).json({ 
+      error: message,
+      code: err.name === 'TokenExpiredError' ? "TOKEN_EXPIRED" : "INVALID_TOKEN"
+    });
+  }
 };
 
 // Request validation middleware
@@ -582,10 +598,16 @@ app.post('/api/auth/google',
     });
     
     if (!userInfoRes.ok) {
-      return res.status(401).json({ error: "Invalid Google token" });
+      const errorText = await userInfoRes.text();
+      console.error('Google Auth verification failed:', userInfoRes.status, errorText);
+      return res.status(401).json({ error: "Invalid or expired Google token" });
     }
     
     const payload = await userInfoRes.json();
+    if (!payload.email) {
+      console.error('Google Auth payload missing email:', payload);
+      return res.status(400).json({ error: "Google account does not provide an email address" });
+    }
     const { email, name, sub: googleId } = payload;
 
     let user = await prisma.user.findUnique({ where: { email } });
@@ -752,8 +774,10 @@ app.post('/api/analyze',
       if (!analysisResult && !attachment && OPENROUTER_API_KEY) {
         try {
           const response = await callOpenRouterAI(idea, systemPrompt);
-          analysisResult = parseAIResponse(response);
-          usedProvider = 'openrouter';
+          if (response) {
+            analysisResult = parseAIResponse(response);
+            usedProvider = 'openrouter';
+          }
         } catch (error) {
           console.warn('OpenRouter failed:', error.message);
         }
@@ -763,7 +787,7 @@ app.post('/api/analyze',
       if (!analysisResult) {
         const GEMINI_API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
-          throw new Error("No AI services available");
+          throw new Error("All AI services failed or are not configured. Please try again later.");
         }
 
         try {
@@ -778,7 +802,8 @@ app.post('/api/analyze',
           }
           parts.push({ text: idea });
 
-          const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
+          const genAI = getGenAI();
+          const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
           const response = await model.generateContent({
             contents: [{ role: 'user', parts }],
             generationConfig: {
@@ -814,13 +839,17 @@ app.post('/api/analyze',
             }
           });
 
-          analysisResult = parseAIResponse(response.response.text());
+          const responseText = response.response.text();
+          if (!responseText) {
+            throw new Error("Empty response from Gemini");
+          }
+          analysisResult = parseAIResponse(responseText);
         } catch (error) {
           console.error('Gemini analysis failed:', error);
-          if (error.message?.includes('429') || error.status === 429) {
-            throw new Error("AI services are currently over capacity. Please try again later.");
-          }
-          throw new Error("AI analysis failed");
+          const errorMsg = error.message?.includes('429') || error.status === 429
+            ? "AI services are currently over capacity. Please try again later."
+            : "AI analysis failed. Please try a shorter description or check your connection.";
+          throw new Error(errorMsg);
         }
       }
 
@@ -993,7 +1022,7 @@ app.get('/api/reports',
       include: {
         reports: {
           orderBy: { createdAt: 'desc' },
-          take: 20
+          take: 50 // Increased from 20 for better history
         }
       }
     });
@@ -1002,15 +1031,26 @@ app.get('/api/reports',
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const reports = user.reports.map(report => ({
-      id: report.id,
-      originalIdea: report.originalIdea,
-      summaryVerdict: report.summaryVerdict,
-      viabilityScore: report.viabilityScore,
-      createdAt: report.createdAt,
-      provider: report.provider,
-      report: report.fullReportData || {}
-    }));
+    const reports = user.reports.map(report => {
+      let reportData = {};
+      try {
+        reportData = (report.fullReportData && typeof report.fullReportData === 'object') 
+          ? report.fullReportData 
+          : (typeof report.fullReportData === 'string' ? JSON.parse(report.fullReportData) : {});
+      } catch (e) {
+        console.warn(`Malformed report data for report ${report.id}:`, e.message);
+      }
+
+      return {
+        id: report.id,
+        originalIdea: report.originalIdea || "Idea analysis",
+        summaryVerdict: report.summaryVerdict || "N/A",
+        viabilityScore: report.viabilityScore || 0,
+        createdAt: report.createdAt,
+        provider: report.provider || 'unknown',
+        report: reportData
+      };
+    });
 
     res.json(reports);
   })

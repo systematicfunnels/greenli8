@@ -7,6 +7,8 @@ vi.mock('@prisma/client', () => {
     user: { findUnique: vi.fn(), update: vi.fn(), delete: vi.fn() },
     report: { create: vi.fn() },
     $transaction: vi.fn((cb) => cb(mPrisma)),
+    $connect: vi.fn().mockResolvedValue(),
+    $disconnect: vi.fn().mockResolvedValue(),
   };
   return {
     PrismaClient: class { constructor() { return mPrisma; } }

@@ -23,8 +23,7 @@ export default defineConfig(({ mode }) => {
             output: {
                 manualChunks: {
                     'vendor-react': ['react', 'react-dom'],
-                    'vendor-ui': ['lucide-react', 'html2canvas', 'jspdf', 'react-markdown'],
-                    'vendor-genai': ['@google/genai']
+                    'vendor-ui': ['lucide-react', 'html2canvas', 'jspdf', 'react-markdown']
                 }
             }
         }

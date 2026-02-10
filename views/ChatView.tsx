@@ -2,9 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/Button';
 import { ValidationReport, ChatMessage } from '../types';
 import { initializeChat } from '../services/geminiService';
-import { ArrowLeft, Send, Sparkles, User, Bot, StopCircle, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Send, Sparkles, User, Bot, StopCircle } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
-import { Chat, GenerateContentResponse } from "@google/genai";
 
 interface ChatViewProps {
   report: ValidationReport;
@@ -74,8 +73,7 @@ export const ChatView: React.FC<ChatViewProps> = ({ report, originalIdea, onBack
       let fullText = '';
       
       for await (const chunk of result) {
-        const c = chunk as GenerateContentResponse;
-        const textChunk = c.text || '';
+        const textChunk = (chunk as any).text || '';
         fullText += textChunk;
         
         setMessages(prev => 
