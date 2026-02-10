@@ -1,6 +1,6 @@
-import env from '../config/env.ts';
-import logger from '../utils/logger.ts';
-import { SYSTEM_PROMPTS } from '../../config/prompts.js';
+import env from '../config/env';
+import logger from '../utils/logger';
+import { SYSTEM_PROMPTS } from '../../config/prompts';
 import { Type } from "@google/genai";
 
 const OPENROUTER_MODELS = [

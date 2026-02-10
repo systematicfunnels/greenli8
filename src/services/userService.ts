@@ -1,9 +1,9 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Resend } from 'resend';
-import env from '../config/env.ts';
-import prisma from '../config/prisma.ts';
-import logger from '../utils/logger.ts';
+import env from '../config/env';
+import prisma from '../config/prisma';
+import logger from '../utils/logger';
 
 const resend = env.resendApiKey ? new Resend(env.resendApiKey) : null;
 

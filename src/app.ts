@@ -2,18 +2,18 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
-import env from './config/env.ts';
-import errorHandler from './middleware/errorHandler.ts';
+import env from './config/env';
+import errorHandler from './middleware/errorHandler';
 
 // Routes
-import authRoutes from './routes/auth.routes.ts';
-import userRoutes from './routes/user.routes.ts';
-import analyzeRoutes from './routes/analyze.routes.ts';
-import reportRoutes from './routes/report.routes.ts';
-import paymentRoutes from './routes/payment.routes.ts';
-import prisma from './config/prisma.ts';
+import authRoutes from './routes/auth.routes';
+import userRoutes from './routes/user.routes';
+import analyzeRoutes from './routes/analyze.routes';
+import reportRoutes from './routes/report.routes';
+import paymentRoutes from './routes/payment.routes';
+import prisma from './config/prisma';
 import { z } from 'zod';
-import asyncHandler from './utils/asyncHandler.ts';
+import asyncHandler from './utils/asyncHandler';
 
 const app = express();
 

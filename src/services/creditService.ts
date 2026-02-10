@@ -1,5 +1,5 @@
-import prisma from '../config/prisma.ts';
-import logger from '../utils/logger.ts';
+import prisma from '../config/prisma';
+import logger from '../utils/logger';
 
 /**
  * Deducts a credit from a user's account with atomic transaction locking.
