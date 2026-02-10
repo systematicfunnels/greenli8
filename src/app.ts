@@ -2,18 +2,18 @@ import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
-import env from './config/env';
-import errorHandler from './middleware/errorHandler';
+import env from './config/env.js';
+import errorHandler from './middleware/errorHandler.js';
 
 // Routes
-import authRoutes from './routes/auth.routes';
-import userRoutes from './routes/user.routes';
-import analyzeRoutes from './routes/analyze.routes';
-import reportRoutes from './routes/report.routes';
-import paymentRoutes from './routes/payment.routes';
-import prisma from './config/prisma';
+import authRoutes from './routes/auth.routes.js';
+import userRoutes from './routes/user.routes.js';
+import analyzeRoutes from './routes/analyze.routes.js';
+import reportRoutes from './routes/report.routes.js';
+import paymentRoutes from './routes/payment.routes.js';
+import prisma from './config/prisma.js';
 import { z } from 'zod';
-import asyncHandler from './utils/asyncHandler';
+import asyncHandler from './utils/asyncHandler.js';
 
 const app = express();
 
@@ -33,7 +33,7 @@ app.use(helmet({
     }
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: false,
+  crossOriginOpenerPolicy: { policy: "unsafe-none" },
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 

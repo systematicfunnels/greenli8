@@ -1,6 +1,6 @@
 import express, { Request, Response } from 'express';
-import * as stripeService from '../services/stripeService';
-import logger from '../utils/logger';
+import * as stripeService from '../services/stripeService.js';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 

@@ -1,10 +1,10 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
-import auth, { AuthRequest } from '../middleware/auth';
-import prisma from '../config/prisma';
-import { analyzeIdea, chatWithAI } from '../services/aiService';
-import { useCredit } from '../services/creditService';
-import asyncHandler from '../utils/asyncHandler';
+import auth, { AuthRequest } from '../middleware/auth.js';
+import prisma from '../config/prisma.js';
+import { analyzeIdea, chatWithAI } from '../services/aiService.js';
+import { useCredit } from '../services/creditService.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 

@@ -1,8 +1,8 @@
 import express, { Request, Response } from 'express';
 import { z } from 'zod';
-import * as userService from '../services/userService';
-import asyncHandler from '../utils/asyncHandler';
-import env from '../config/env';
+import * as userService from '../services/userService.js';
+import asyncHandler from '../utils/asyncHandler.js';
+import env from '../config/env.js';
 
 const router = express.Router();
 

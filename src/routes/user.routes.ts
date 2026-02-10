@@ -1,8 +1,8 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
-import auth, { AuthRequest } from '../middleware/auth';
-import * as userService from '../services/userService';
-import asyncHandler from '../utils/asyncHandler';
+import auth, { AuthRequest } from '../middleware/auth.js';
+import * as userService from '../services/userService.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 

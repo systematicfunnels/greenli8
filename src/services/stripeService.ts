@@ -1,7 +1,7 @@
 import Stripe from 'stripe';
-import env from '../config/env';
-import prisma from '../config/prisma';
-import logger from '../utils/logger';
+import env from '../config/env.js';
+import prisma from '../config/prisma.js';
+import logger from '../utils/logger.js';
 
 const stripe = env.stripeSecretKey ? new Stripe(env.stripeSecretKey, {
   apiVersion: '2023-10-16' as any,

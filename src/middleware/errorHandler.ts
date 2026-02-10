@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
-import logger from '../utils/logger';
-import env from '../config/env';
+import logger from '../utils/logger.js';
+import env from '../config/env.js';
 
 const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
   let statusCode = err.status || 500;

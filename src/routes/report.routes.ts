@@ -1,7 +1,7 @@
 import express, { Response } from 'express';
-import auth, { AuthRequest } from '../middleware/auth';
-import prisma from '../config/prisma';
-import asyncHandler from '../utils/asyncHandler';
+import auth, { AuthRequest } from '../middleware/auth.js';
+import prisma from '../config/prisma.js';
+import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
 
@@ -36,7 +36,18 @@ router.get('/:id', auth, asyncHandler(async (req: AuthRequest, res: Response) =>
     where: { id: req.params.id as string, userId: req.user.id }
   });
   if (!report) return res.status(404).json({ error: "Report not found" });
-  res.json(report);
+
+  // Robust JSON parsing for fullReportData
+  let data = report.fullReportData;
+  if (typeof data === 'string') {
+    try {
+      data = JSON.parse(data);
+    } catch (_e) {
+      console.error('Failed to parse report data:', _e);
+    }
+  }
+
+  res.json({ ...report, fullReportData: data });
 }));
 
 export default router;
