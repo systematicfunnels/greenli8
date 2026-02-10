@@ -138,7 +138,7 @@ const OPENROUTER_DEFAULT_MODEL = process.env.OPENROUTER_MODEL || OPENROUTER_MODE
 // Security & CORS Configuration
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-  : ['http://localhost:5173'];
+  : ['http://localhost:5173', 'https://greenli8.vercel.app'];
 
 // Security middleware
 app.use(helmet({
@@ -148,7 +148,7 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", ...allowedOrigins]
+      connectSrc: ["'self'", ...allowedOrigins, "*.vercel.app"]
     }
   },
   crossOriginEmbedderPolicy: false,
@@ -158,11 +158,13 @@ app.use(helmet({
 // CORS configuration
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
       callback(null, true);
     } else {
       console.warn(`Blocked request from origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
+      const error = new Error('Not allowed by CORS');
+      error.status = 403;
+      callback(error);
     }
   },
   credentials: true,
@@ -481,18 +483,20 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader?.split(' ')[1];
 
   if (!token) {
+    console.warn(`Auth failed: No token provided for ${req.method} ${req.path}`);
     return res.status(401).json({ error: "Authentication token required" });
   }
 
   try {
     const user = jwt.verify(token, JWT_SECRET);
     if (!user || !user.id || !user.email) {
+      console.error('Auth failed: Invalid token payload');
       throw new Error('Invalid token payload');
     }
     req.user = user;
     next();
   } catch (err) {
-    console.error('JWT Verification Error:', err.message);
+    console.error(`JWT Verification Error for ${req.path}:`, err.message);
     const message = err.name === 'TokenExpiredError' 
       ? "Your session has expired. Please login again." 
       : "Invalid authentication token";
@@ -751,15 +755,17 @@ app.post('/api/analyze',
       }
 
       if (!user.isPro && user.credits <= 0) {
-        throw new Error("Insufficient credits");
+        const error = new Error("Insufficient credits");
+        error.status = 402; // Payment Required
+        throw error;
       }
 
-      // Perform AI analysis
-      const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
-      let analysisResult;
-      let usedProvider = 'gemini'; // default
+        // Perform AI analysis
+        const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
+        let analysisResult;
+        let usedProvider = 'gemini'; // default
 
-      // Try Sarvam first (text-only)
+        // Try Sarvam first (text-only)
       if (!attachment && SARVAM_API_KEY) {
         try {
           const response = await callSarvamAI(idea, systemPrompt);
@@ -1122,13 +1128,18 @@ app.use((req, res) => {
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error('Global error handler:', err);
-
   const statusCode = err.status || 500;
   const message = err.message || 'Internal server error';
 
+  if (statusCode === 500) {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+  } else {
+    console.warn(`[WARN] ${req.method} ${req.path} (${statusCode}): ${message}`);
+  }
+
   res.status(statusCode).json({
     error: message,
+    code: err.code,
     ...(process.env.NODE_ENV === 'development' && {
       stack: err.stack,
       details: err.details
