@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
-import { Loader2, FileArchive, Key } from 'lucide-react';
+import { Loader2, FileArchive, Key, Trash2 } from 'lucide-react';
 import { UserProfile, ValidationReport } from '../types';
 import { jsPDF } from "jspdf";
 import JSZip from "jszip";
@@ -50,7 +50,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newProvider, setNewProvider] = useState('');
   const [newModel, setNewModel] = useState('');
   const [newApiKey, setNewApiKey] = useState('');
+  const [customModels, setCustomModels] = useState<any[]>([]);
   
+  // Sync custom models from localStorage on mount
+  useEffect(() => {
+    const saved = localStorage.getItem('greenli8_custom_models');
+    if (saved) {
+      try {
+        setCustomModels(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse custom models", e);
+      }
+    }
+  }, []);
+
   // Delete Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState('');
@@ -192,6 +205,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     const existingModels = JSON.parse(localStorage.getItem('greenli8_custom_models') || '[]');
     existingModels.push(customModel);
     localStorage.setItem('greenli8_custom_models', JSON.stringify(existingModels));
+    setCustomModels(existingModels);
 
     // Reset and close
     setNewProvider('');
@@ -199,6 +213,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setNewApiKey('');
     setIsAddModelModalOpen(false);
     alert("Model added successfully!");
+  };
+
+  const removeModel = (id: string) => {
+    const updated = customModels.filter(m => m.id !== id);
+    localStorage.setItem('greenli8_custom_models', JSON.stringify(updated));
+    setCustomModels(updated);
   };
 
   return (
@@ -341,6 +361,29 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                        Add Model
                     </Button>
                  </div>
+
+                 {customModels.length > 0 && (
+                   <div className="mt-6 space-y-3">
+                     <h4 className="text-sm font-semibold text-slate-700">Custom Models Added</h4>
+                     <div className="space-y-2">
+                       {customModels.map((m) => (
+                         <div key={m.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg group">
+                           <div>
+                             <p className="text-sm font-medium text-slate-900 capitalize">{m.provider} - {m.model}</p>
+                             <p className="text-xs text-slate-500 font-mono">••••••••{m.apiKey.slice(-4)}</p>
+                           </div>
+                           <button 
+                             onClick={() => removeModel(m.id)}
+                             className="text-slate-400 hover:text-rose-500 transition-colors p-1"
+                             title="Remove model"
+                           >
+                             <Trash2 size={16} />
+                           </button>
+                         </div>
+                       ))}
+                     </div>
+                   </div>
+                 )}
                  
                  <div className="text-xs text-slate-500 space-y-1 pt-2">
                     <p>• Supports Google Gemini, OpenRouter, and Sarvam AI</p>
