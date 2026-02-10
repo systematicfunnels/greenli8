@@ -1,20 +1,22 @@
-import env from '../config/env.js';
-import logger from '../utils/logger.js';
+import env from '../config/env.ts';
+import logger from '../utils/logger.ts';
 import { SYSTEM_PROMPTS } from '../../config/prompts.js';
 import { Type } from "@google/genai";
 
 const OPENROUTER_MODELS = [
+  "openrouter/auto",
   "google/gemini-2.0-flash-lite-preview-02-05:free",
   "google/gemini-2.0-flash-exp:free",
   "deepseek/deepseek-chat:free",
   "mistralai/mistral-7b-instruct:free",
-  "openrouter/auto"
+  "microsoft/phi-3-mini-128k-instruct:free",
+  "qwen/qwen-2.5-72b-instruct:free"
 ];
 
 /**
  * Utility to wrap a promise with a timeout using AbortController
  */
-const callWithTimeout = async (fn, timeoutMs = 45000) => {
+const callWithTimeout = async <T>(fn: (signal: AbortSignal) => Promise<T>, timeoutMs: number = 45000): Promise<T> => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -30,7 +32,7 @@ const callWithTimeout = async (fn, timeoutMs = 45000) => {
 /**
  * Parses AI response text for JSON
  */
-const parseResponse = (text) => {
+const parseResponse = (text: string): any => {
   try {
     return JSON.parse(text);
   } catch {
@@ -43,7 +45,7 @@ const parseResponse = (text) => {
 /**
  * Core analysis service with multi-provider failover
  */
-export const analyzeIdea = async (idea, attachment = null) => {
+export const analyzeIdea = async (idea: string, attachment: { mimeType: string; data: string } | null = null) => {
   const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
 
   // 1. Try Sarvam (Text only)
@@ -65,10 +67,10 @@ export const analyzeIdea = async (idea, attachment = null) => {
           }),
           signal
         });
-        const data = await res.json();
+        const data = await res.json() as any;
         return parseResponse(data.choices[0].message.content);
       });
-    } catch (e) {
+    } catch (_e) {
       logger.warn('Sarvam AI failed, trying next...');
     }
   }
@@ -95,11 +97,11 @@ export const analyzeIdea = async (idea, attachment = null) => {
             }),
             signal
           });
-          const data = await res.json();
+          const data = await res.json() as any;
           if (!res.ok) throw new Error(data.error?.message || 'OpenRouter error');
           return parseResponse(data.choices[0].message.content);
         });
-      } catch (e) {
+      } catch (_e) {
         logger.warn(`OpenRouter model ${model} failed, trying next...`);
       }
     }
@@ -109,10 +111,9 @@ export const analyzeIdea = async (idea, attachment = null) => {
   if (env.geminiKey) {
     try {
       const { GoogleGenAI } = await import('@google/genai');
-      const genAI = new GoogleGenAI(env.geminiKey);
-      const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+      const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
-      const parts = [];
+      const parts: any[] = [];
       if (attachment) {
         parts.push({
           inlineData: {
@@ -123,7 +124,9 @@ export const analyzeIdea = async (idea, attachment = null) => {
       }
       parts.push({ text: idea });
 
-      const result = await model.generateContent({
+      const result = await (ai.models as any).generateContent({
+        model: 'gemini-2.0-flash',
+        systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: [{ role: 'user', parts }],
         generationConfig: {
           responseMimeType: "application/json",
@@ -151,9 +154,9 @@ export const analyzeIdea = async (idea, attachment = null) => {
           }
         }
       });
-      return parseResponse(result.response.text());
-    } catch (e) {
-      logger.error('Gemini fallback failed:', e.message);
+      return parseResponse(result.text || '');
+    } catch (_e: any) {
+      logger.error('Gemini fallback failed:', _e.message);
     }
   }
 
@@ -163,15 +166,15 @@ export const analyzeIdea = async (idea, attachment = null) => {
 /**
  * Chat service for follow-up questions
  */
-export const chatWithAI = async (message, context) => {
+export const chatWithAI = async (message: string, context: { originalIdea: string; report: any }) => {
   if (!env.geminiKey) throw new Error('AI not configured');
   
   const { GoogleGenAI } = await import('@google/genai');
-  const genAI = new GoogleGenAI(env.geminiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
-  const chat = model.startChat({
-    history: [
+  const result = await (ai.models as any).generateContent({
+    model: 'gemini-2.0-flash',
+    contents: [
       {
         role: "user",
         parts: [{ text: `You previously analyzed this idea: "${context.originalIdea}". Here is the report you generated: ${JSON.stringify(context.report)}. Keep this context in mind.` }],
@@ -179,10 +182,13 @@ export const chatWithAI = async (message, context) => {
       {
         role: "model",
         parts: [{ text: "Understood. I have the context of the idea and the previous analysis. How can I help you further?" }],
+      },
+      {
+        role: "user",
+        parts: [{ text: message }]
       }
     ],
   });
 
-  const result = await chat.sendMessage(message);
-  return result.response.text();
+  return result.text;
 };

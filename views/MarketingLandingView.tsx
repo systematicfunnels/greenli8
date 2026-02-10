@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Button } from '../components/Button';
-import { ArrowRight, CheckCircle2, Zap, Shield, TrendingUp, Mail, Loader2 } from 'lucide-react';
+import { CheckCircle2, Zap, Shield, TrendingUp, Mail, Loader2 } from 'lucide-react';
 import { api } from '../services/api';
 
 interface MarketingLandingViewProps {

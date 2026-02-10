@@ -23,7 +23,7 @@ interface ReportViewProps {
   onChat: () => void;
 }
 
-export const ReportView: React.FC<ReportViewProps> = ({ report, onReset, onUpgrade, onChat }) => {
+export const ReportView: React.FC<ReportViewProps> = ({ report, onReset, onUpgrade: _, onChat }) => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isShared, setIsShared] = useState(false);
   const reportRef = useRef<HTMLDivElement>(null);

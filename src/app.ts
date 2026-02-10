@@ -1,19 +1,19 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import { rateLimit } from 'express-rate-limit';
-import env from './config/env.js';
-import errorHandler from './middleware/errorHandler.js';
+import env from './config/env.ts';
+import errorHandler from './middleware/errorHandler.ts';
 
 // Routes
-import authRoutes from './routes/auth.routes.js';
-import userRoutes from './routes/user.routes.js';
-import analyzeRoutes from './routes/analyze.routes.js';
-import reportRoutes from './routes/report.routes.js';
-import paymentRoutes from './routes/payment.routes.js';
-import prisma from './config/prisma.js';
+import authRoutes from './routes/auth.routes.ts';
+import userRoutes from './routes/user.routes.ts';
+import analyzeRoutes from './routes/analyze.routes.ts';
+import reportRoutes from './routes/report.routes.ts';
+import paymentRoutes from './routes/payment.routes.ts';
+import prisma from './config/prisma.ts';
 import { z } from 'zod';
-import asyncHandler from './utils/asyncHandler.js';
+import asyncHandler from './utils/asyncHandler.ts';
 
 const app = express();
 
@@ -50,7 +50,7 @@ app.use('/api/payments', paymentRoutes);
 app.use(express.json({ limit: '10mb' }));
 
 // For Google Auth compatibility
-app.use((req, res, next) => {
+app.use((_req: Request, res: Response, next: NextFunction) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
   res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
@@ -71,7 +71,7 @@ app.use('/api', analyzeRoutes); // Mounted at /api to support /api/analyze and /
 app.use('/api/reports', reportRoutes);
 
 // Health check
-app.get('/api/health', (req, res) => {
+app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
 
@@ -81,11 +81,11 @@ const WaitlistSchema = z.object({
   source: z.string().optional()
 });
 
-app.post('/api/waitlist', asyncHandler(async (req, res) => {
+app.post('/api/waitlist', asyncHandler(async (req: Request, res: Response) => {
   const { email, source } = WaitlistSchema.parse(req.body);
   const entry = await prisma.waitlist.upsert({
     where: { email },
-    update: { source, updatedAt: new Date() },
+    update: { source },
     create: { email, source }
   });
   res.json({ success: true, id: entry.id });

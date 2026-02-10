@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '../components/Button';
-import { Check, Shield, Loader2, AlertCircle, CreditCard, Lock, ExternalLink } from 'lucide-react';
+import { Check, Shield, Loader2, AlertCircle, Lock, CreditCard } from 'lucide-react';
 
 interface PricingViewProps {
   onPurchase: (plan: 'single' | 'lifetime' | 'maker' | 'pro') => Promise<void>;
@@ -8,7 +8,7 @@ interface PricingViewProps {
 }
 
 export const PricingView: React.FC<PricingViewProps> = ({ onPurchase, onBack }) => {
-  const [processing, setProcessing] = useState<'single' | 'lifetime' | 'maker' | 'pro' | null>(null);
+  const [_processing, setProcessing] = useState<'single' | 'lifetime' | 'maker' | 'pro' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showSimulatedCheckout, setShowSimulatedCheckout] = useState(false);
   

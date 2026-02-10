@@ -1,12 +1,10 @@
-import prisma from '../config/prisma.js';
-import logger from '../utils/logger.js';
+import prisma from '../config/prisma.ts';
+import logger from '../utils/logger.ts';
 
 /**
  * Deducts a credit from a user's account with atomic transaction locking.
- * @param {string} email 
- * @returns {Promise<Object>} The updated user object
  */
-export const useCredit = async (email) => {
+export const useCredit = async (email: string) => {
   return await prisma.$transaction(async (tx) => {
     const user = await tx.user.findUnique({ 
       where: { email },
@@ -14,13 +12,13 @@ export const useCredit = async (email) => {
     });
 
     if (!user) {
-      const error = new Error("User account not found");
+      const error = new Error("User account not found") as any;
       error.status = 404;
       throw error;
     }
 
     if (!user.isPro && user.credits <= 0) {
-      const error = new Error("Insufficient credits. Please upgrade or purchase more.");
+      const error = new Error("Insufficient credits. Please upgrade or purchase more.") as any;
       error.status = 402; // Payment Required
       throw error;
     }
@@ -42,10 +40,8 @@ export const useCredit = async (email) => {
 
 /**
  * Adds credits to a user's account.
- * @param {string} email 
- * @param {number} amount 
  */
-export const addCredits = async (email, amount) => {
+export const addCredits = async (email: string, amount: number) => {
   return await prisma.user.update({
     where: { email },
     data: { credits: { increment: amount } }

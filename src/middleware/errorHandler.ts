@@ -1,7 +1,8 @@
-import logger from '../utils/logger.js';
-import env from '../config/env.js';
+import { Request, Response, NextFunction } from 'express';
+import logger from '../utils/logger.ts';
+import env from '../config/env.ts';
 
-const errorHandler = (err, req, res, next) => {
+const errorHandler = (err: any, req: Request, res: Response, _next: NextFunction) => {
   let statusCode = err.status || 500;
   let message = err.message || 'Internal server error';
   let details = undefined;

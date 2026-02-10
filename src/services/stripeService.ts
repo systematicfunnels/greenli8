@@ -1,14 +1,13 @@
 import Stripe from 'stripe';
-import env from '../config/env.js';
-import prisma from '../config/prisma.js';
-import logger from '../utils/logger.js';
-import { addCredits } from './creditService.js';
+import env from '../config/env.ts';
+import prisma from '../config/prisma.ts';
+import logger from '../utils/logger.ts';
 
 const stripe = env.stripeSecretKey ? new Stripe(env.stripeSecretKey, {
-  apiVersion: '2023-10-16',
+  apiVersion: '2023-10-16' as any,
 }) : null;
 
-export const handleWebhook = async (rawBody, signature) => {
+export const handleWebhook = async (rawBody: any, signature: string) => {
   if (!stripe || !env.stripeWebhookSecret) {
     throw new Error('Stripe not configured');
   }
@@ -20,14 +19,14 @@ export const handleWebhook = async (rawBody, signature) => {
   );
 
   if (event.type === 'checkout.session.completed') {
-    const session = event.data.object;
+    const session = event.data.object as Stripe.Checkout.Session;
     await processSuccessfulPayment(session);
   }
 
   return { received: true };
 };
 
-async function processSuccessfulPayment(session) {
+async function processSuccessfulPayment(session: Stripe.Checkout.Session) {
   const customerEmail = session.customer_details?.email;
   const planType = session.metadata?.plan || 'single';
 
@@ -38,7 +37,7 @@ async function processSuccessfulPayment(session) {
 
   logger.info(`Processing payment for ${customerEmail}, plan: ${planType}`);
 
-  let updateData = {};
+  let updateData: any = {};
   switch (planType) {
     case 'lifetime':
     case 'pro':

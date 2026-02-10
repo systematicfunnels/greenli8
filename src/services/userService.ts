@@ -1,16 +1,16 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Resend } from 'resend';
-import env from '../config/env.js';
-import prisma from '../config/prisma.js';
-import logger from '../utils/logger.js';
+import env from '../config/env.ts';
+import prisma from '../config/prisma.ts';
+import logger from '../utils/logger.ts';
 
 const resend = env.resendApiKey ? new Resend(env.resendApiKey) : null;
 
-export const signup = async ({ email, password, name }) => {
+export const signup = async ({ email, password, name }: { email: string; password: string; name?: string }) => {
   const existingUser = await prisma.user.findUnique({ where: { email } });
   if (existingUser) {
-    const error = new Error("User already exists");
+    const error = new Error("User already exists") as any;
     error.status = 409;
     throw error;
   }
@@ -26,7 +26,7 @@ export const signup = async ({ email, password, name }) => {
         emailNotifications: true,
         marketingEmails: false,
         theme: 'light'
-      }
+      } as any
     }
   });
 
@@ -50,17 +50,17 @@ export const signup = async ({ email, password, name }) => {
   return { user: userWithoutPassword, token };
 };
 
-export const login = async ({ email, password }) => {
+export const login = async ({ email, password }: any) => {
   const user = await prisma.user.findUnique({ where: { email } });
   if (!user || !user.password) {
-    const error = new Error("Invalid credentials");
+    const error = new Error("Invalid credentials") as any;
     error.status = 401;
     throw error;
   }
 
   const isValid = await bcrypt.compare(password, user.password);
   if (!isValid) {
-    const error = new Error("Invalid credentials");
+    const error = new Error("Invalid credentials") as any;
     error.status = 401;
     throw error;
   }
@@ -75,18 +75,18 @@ export const login = async ({ email, password }) => {
   return { user: userWithoutPassword, token };
 };
 
-export const googleLogin = async (token) => {
+export const googleLogin = async (token: string) => {
   const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${token}` }
   });
   
   if (!userInfoRes.ok) {
-    const error = new Error("Invalid Google token");
+    const error = new Error("Invalid Google token") as any;
     error.status = 401;
     throw error;
   }
   
-  const payload = await userInfoRes.json();
+  const payload = await userInfoRes.json() as any;
   const { email, name, sub: googleId } = payload;
 
   let user = await prisma.user.findUnique({ where: { email } });
@@ -104,7 +104,7 @@ export const googleLogin = async (token) => {
           emailNotifications: true,
           marketingEmails: false,
           theme: 'light'
-        }
+        } as any
       }
     });
   } else if (!user.googleId) {
@@ -133,7 +133,7 @@ export const googleLogin = async (token) => {
   return { user: userWithoutPassword, token: jwtToken, isNewUser };
 };
 
-export const getCurrentUser = async (email) => {
+export const getCurrentUser = async (email: string) => {
   const user = await prisma.user.findUnique({
     where: { email },
     select: {
@@ -147,14 +147,14 @@ export const getCurrentUser = async (email) => {
     }
   });
   if (!user) {
-    const error = new Error("User not found");
+    const error = new Error("User not found") as any;
     error.status = 404;
     throw error;
   }
   return user;
 };
 
-export const updateProfile = async (email, data) => {
+export const updateProfile = async (email: string, data: any) => {
   return await prisma.user.update({
     where: { email },
     data,
@@ -169,6 +169,6 @@ export const updateProfile = async (email, data) => {
   });
 };
 
-export const deleteAccount = async (email) => {
+export const deleteAccount = async (email: string) => {
   await prisma.user.delete({ where: { email } });
 };

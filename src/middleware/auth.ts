@@ -1,8 +1,17 @@
+import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import env from '../config/env.js';
-import logger from '../utils/logger.js';
+import env from '../config/env.ts';
+import logger from '../utils/logger.ts';
 
-const auth = (req, res, next) => {
+export interface AuthRequest extends Request {
+  user?: {
+    id: string;
+    email: string;
+    [key: string]: any;
+  };
+}
+
+const auth = (req: AuthRequest, res: Response, next: NextFunction) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader?.split(' ')[1];
 
@@ -15,7 +24,7 @@ const auth = (req, res, next) => {
   }
 
   try {
-    const user = jwt.verify(token, env.jwtSecret);
+    const user = jwt.verify(token, env.jwtSecret) as any;
     if (!user || !user.id || !user.email) {
       logger.error('Auth failed: Invalid token payload');
       return res.status(403).json({ 
@@ -25,7 +34,7 @@ const auth = (req, res, next) => {
     }
     req.user = user;
     next();
-  } catch (err) {
+  } catch (err: any) {
     logger.error(`JWT Verification Error for ${req.path}:`, err.message);
     const message = err.name === 'TokenExpiredError' 
       ? "Your session has expired. Please login again." 

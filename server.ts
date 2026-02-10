@@ -1,7 +1,7 @@
-import app from './src/app.js';
-import env from './src/config/env.js';
-import prisma from './src/config/prisma.js';
-import logger from './src/utils/logger.js';
+import app from './src/app.ts';
+import env from './src/config/env.ts';
+import prisma from './src/config/prisma.ts';
+import logger from './src/utils/logger.ts';
 
 const server = app.listen(env.port, () => {
   logger.info(`Enterprise server running on ${env.port}`);
