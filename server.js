@@ -13,6 +13,7 @@ import { SYSTEM_PROMPTS } from './config/prompts.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
 const prisma = new PrismaClient();
+export { prisma };
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789');
 const app = express();
 const PORT = process.env.PORT || 4242;

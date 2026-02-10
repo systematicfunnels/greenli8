@@ -13,7 +13,8 @@
     "backend": "node server.js",
     "build": "vite build",
     "postinstall": "prisma generate",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@babel/helper-validator-identifier": "^7.28.5",
@@ -48,9 +49,11 @@
     "concurrently": "^9.2.1",
     "postcss": "^8.5.6",
     "prisma": "^6.19.2",
+    "supertest": "^7.2.2",
     "tailwindcss": "^3.4.17",
     "typescript": "~5.8.2",
-    "vite": "^6.4.1"
+    "vite": "^6.4.1",
+    "vitest": "^4.0.18"
   },
   "optionalDependencies": {
     "@rollup/rollup-linux-x64-gnu": "^4.57.1"
