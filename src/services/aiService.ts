@@ -15,8 +15,9 @@ const OPENROUTER_MODELS = [
 
 /**
  * Utility to wrap a promise with a timeout using AbortController
+ * Vercel Hobby plan has a 10s limit, so we set timeout to 9s to fail gracefully.
  */
-const callWithTimeout = async <T>(fn: (signal: AbortSignal) => Promise<T>, timeoutMs: number = 45000): Promise<T> => {
+const callWithTimeout = async <T>(fn: (signal: AbortSignal) => Promise<T>, timeoutMs: number = 9000): Promise<T> => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {

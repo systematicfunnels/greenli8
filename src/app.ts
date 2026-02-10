@@ -17,6 +17,9 @@ import asyncHandler from './utils/asyncHandler.ts';
 
 const app = express();
 
+// Trust Vercel/Cloudflare proxy for rate limiting
+app.set('trust proxy', 1);
+
 // Security
 app.use(helmet({
   contentSecurityPolicy: {
