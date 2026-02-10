@@ -26,11 +26,13 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Greenli8 AI <onboarding@resend.dev>';
 
 // Initialize Gemini on Backend
-if (!process.env.API_KEY) {
-    console.error("FATAL: API_KEY (Gemini) is not defined.");
+const GEMINI_API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
+
+if (!GEMINI_API_KEY) {
+    console.error("❌ FATAL: Gemini API_KEY is missing. Please add API_KEY to your environment variables.");
     process.exit(1);
 }
-const genAI = new GoogleGenAI(process.env.API_KEY);
+const genAI = new GoogleGenAI(GEMINI_API_KEY);
 
 // Initialize Sarvam AI config
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
