@@ -400,8 +400,10 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
         
         // Extract JSON from potential Markdown formatting
         const jsonMatch = sarvamResponse.match(/\{[\s\S]*\}/);
-        const jsonStr = jsonMatch ? jsonMatch[0] : sarvamResponse;
-        analysisResult = JSON.parse(jsonStr);
+        if (!jsonMatch) {
+          throw new Error("AI returned an invalid format. Please try rephrasing your idea.");
+        }
+        analysisResult = JSON.parse(jsonMatch[0]);
         
         console.log("--- SUCCESS: Sarvam AI analysis completed ---");
       } catch (sarvamError) {
@@ -463,7 +465,12 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
           }
         });
 
-        analysisResult = JSON.parse(response.response.text());
+        const geminiText = response.response.text();
+        const gMatch = geminiText.match(/\{[\s\S]*\}/);
+        if (!gMatch) {
+          throw new Error("AI (Gemini) returned an invalid format.");
+        }
+        analysisResult = JSON.parse(gMatch[0]);
         console.log("--- SUCCESS: Gemini fallback analysis completed ---");
       } catch (geminiError) {
         console.error("--- CRITICAL: Gemini fallback also failed ---", geminiError.message);
@@ -632,12 +639,20 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
 
     if (!user) return res.status(404).json({ error: 'User not found' });
 
-    const history = user.reports.map(r => ({
-      ...(r.fullReportData), 
-      id: r.id,
-      createdAt: new Date(r.createdAt).getTime(),
-      originalIdea: r.originalIdea
-    }));
+    const history = user.reports.map(r => {
+      const reportData = (r.fullReportData && typeof r.fullReportData === 'object') 
+        ? r.fullReportData 
+        : {};
+
+      return {
+        ...reportData,
+        id: r.id,
+        createdAt: new Date(r.createdAt).getTime(),
+        originalIdea: r.originalIdea,
+        summaryVerdict: r.summaryVerdict || reportData.summaryVerdict,
+        viabilityScore: r.viabilityScore || reportData.viabilityScore
+      };
+    });
 
     res.json(history);
   } catch (error) {
