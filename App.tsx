@@ -86,6 +86,13 @@ export const App: React.FC = () => {
 
       // API Load (Authenticated)
       try {
+        const token = localStorage.getItem('Greenli8_token');
+        if (!token) {
+          console.warn("User state exists but token is missing, forcing logout");
+          handleLogout();
+          return;
+        }
+
         const dbHistory = await api.getHistory();
         setHistory(dbHistory);
         
@@ -94,11 +101,13 @@ export const App: React.FC = () => {
         setUser(dbUser);
         setCredits(dbUser.credits);
         setIsLifetime(dbUser.isPro);
-      } catch (e) {
+      } catch (e: any) {
         console.error("Failed to sync with backend", e);
-        // If auth fails, clear local state
-        localStorage.removeItem('Greenli8_token');
-        // We might want to keep the user for guest mode fallback, but for now let's leave it.
+        // If auth fails (401 or 403), clear local state and force logout
+        const errorMessage = e.message?.toLowerCase() || "";
+        if (errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('token')) {
+          handleLogout();
+        }
       }
     };
 
@@ -182,14 +191,7 @@ export const App: React.FC = () => {
       setIsLifetime(userData.isPro);
       localStorage.setItem('Greenli8_user', JSON.stringify(userData));
       
-      // Explicitly load fresh history now that token is set in api.ts
-      try {
-        const dbHistory = await api.getHistory();
-        setHistory(dbHistory);
-      } catch (e) {
-        console.error("Failed to load history after login", e);
-      }
-      
+      // No need to load history here, the useEffect[user] will trigger it
       setCurrentView('dashboard');
     } catch (e) {
       console.error("Login state update failed", e);

@@ -4,6 +4,9 @@ const API_URL = import.meta.env.VITE_API_URL || "/api";
 
 const getHeaders = () => {
   const token = localStorage.getItem('Greenli8_token');
+  if (!token) {
+    console.warn("Attempting protected request without token");
+  }
   return {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
