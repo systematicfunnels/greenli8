@@ -26,14 +26,14 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com"],
+      scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", ...env.allowedOrigins, "*.vercel.app", "https://accounts.google.com"],
-      frameSrc: ["'self'", "https://accounts.google.com", "https://content.googleapis.com"],
+      connectSrc: ["'self'", ...env.allowedOrigins, "*.vercel.app", "https://accounts.google.com", "https://www.googleapis.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
     }
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+  crossOriginOpenerPolicy: false, // Let the frontend/Vercel handle this
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 

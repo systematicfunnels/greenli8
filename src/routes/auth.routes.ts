@@ -2,6 +2,7 @@ import express, { Request, Response } from 'express';
 import { z } from 'zod';
 import * as userService from '../services/userService';
 import asyncHandler from '../utils/asyncHandler';
+import env from '../config/env';
 
 const router = express.Router();
 
@@ -34,9 +35,21 @@ router.get('/google', (req, res) => {
 
 router.post('/google', asyncHandler(async (req: Request, res: Response) => {
   const { token } = req.body;
-  if (!token) return res.status(400).json({ error: "Google token required" });
-  const result = await userService.googleLogin(token);
-  res.json(result);
+  if (!token) {
+    console.error('[Auth Route] Missing token in request body');
+    return res.status(400).json({ error: "Google token is required" });
+  }
+
+  try {
+    const result = await userService.googleLogin(token);
+    res.json(result);
+  } catch (error: any) {
+    console.error('[Auth Route] Google Login Error:', error);
+    res.status(error.status || 500).json({ 
+      error: error.message || "Authentication failed",
+      details: env.nodeEnv === 'development' ? error.stack : undefined
+    });
+  }
 }));
 
 export default router;
