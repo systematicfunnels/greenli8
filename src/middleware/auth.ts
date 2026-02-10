@@ -7,7 +7,7 @@ export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -24,7 +24,7 @@ const auth = (req: AuthRequest, res: Response, next: NextFunction) => {
   }
 
   try {
-    const user = jwt.verify(token, env.jwtSecret) as any;
+    const user = jwt.verify(token, env.jwtSecret) as { id: string; email: string; [key: string]: unknown };
     if (!user || !user.id || !user.email) {
       logger.error('Auth failed: Invalid token payload');
       return res.status(403).json({ 

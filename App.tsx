@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import type { ViewState, ValidationReport, UserProfile } from './types';
 import { MOCK_REPORT } from './types';
-import { validateIdea } from './services/geminiService';
 import { api } from './services/api'; 
 import { MarketingLandingView } from './views/MarketingLandingView';
 import { InputView } from './views/InputView';
@@ -27,8 +26,12 @@ export const App: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(() => {
     try {
       const saved = localStorage.getItem('Greenli8_user');
-      return saved ? JSON.parse(saved) : null;
-    } catch { return null; }
+      if (!saved) return null;
+      return JSON.parse(saved);
+    } catch {
+      localStorage.removeItem('Greenli8_user');
+      return null;
+    }
   });
 
   const [currentView, setCurrentView] = useState<ViewState>(() => {
@@ -36,11 +39,6 @@ export const App: React.FC = () => {
     const params = new URLSearchParams(window.location.search);
     if (params.get('mode') === 'waitlist') return 'marketing';
     if (params.get('mode') === 'app') return localStorage.getItem('Greenli8_user') ? 'dashboard' : 'auth';
-
-    // Check environment variable (set VITE_ENABLE_MARKETING_PAGE=true in Production)
-    // if (import.meta.env.VITE_ENABLE_MARKETING_PAGE === 'true' && !localStorage.getItem('Greenli8_user')) {
-    //     return 'marketing';
-    // }
 
     if (localStorage.getItem('Greenli8_user')) return 'dashboard';
     
@@ -274,18 +272,11 @@ export const App: React.FC = () => {
     setOriginalIdea(idea);
     
     try {
-      // Pass user email to secure backend to enforce server-side credit check
-      const result = await validateIdea(idea, attachment, user?.email);
-      
-      const finalReport: ValidationReport = {
-          ...result,
-          id: result.id || crypto.randomUUID(),
-          createdAt: result.createdAt || Date.now(),
-          originalIdea: idea 
-      };
+      // Backend provides complete response with ID, timestamp, and original idea
+      const result = await api.analyzeIdea(idea, attachment);
 
-      setReport(finalReport);
-      setHistory([finalReport, ...history]);
+      setReport(result);
+      setHistory([result, ...history]);
       
       if (user) {
          // Update local credits from server response
@@ -298,7 +289,7 @@ export const App: React.FC = () => {
          }
       } else {
           // Guest Logic (Local Storage)
-          const guestHistory = [finalReport, ...history];
+          const guestHistory = [result, ...history];
           localStorage.setItem('Greenli8_history', JSON.stringify(guestHistory));
           
           if (!isLifetime) {

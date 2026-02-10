@@ -17,7 +17,7 @@ const OPENROUTER_MODELS = [
  * Utility to wrap a promise with a timeout using AbortController
  * Vercel Hobby plan has a 10s limit, so we set timeout to 9s to fail gracefully.
  */
-const callWithTimeout = async <T>(fn: (signal: AbortSignal) => Promise<T>, timeoutMs: number = 9000): Promise<T> => {
+const callWithTimeout = async <T>(fn: (_signal: AbortSignal) => Promise<T>, timeoutMs: number = 9000): Promise<T> => {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -62,7 +62,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
       const { GoogleGenAI } = await import('@google/genai');
       const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
-      return await callWithTimeout(async (signal) => {
+      return await callWithTimeout(async (_signal) => {
         const parts: any[] = [];
         if (attachment) {
           parts.push({
@@ -126,24 +126,24 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
 
       try {
         console.log(`[AI] Trying OpenRouter model: ${model}`);
-        return await callWithTimeout(async (signal) => {
-          const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.openRouterKey}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://greenli8.com',
-              'X-Title': 'Greenli8 AI'
-            },
-            body: JSON.stringify({
-              model: model,
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: idea }
-              ]
-            }),
-            signal
-          });
+        return await callWithTimeout(async (_signal) => {
+        const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.openRouterKey}`,
+            'Content-Type': 'application/json',
+            'HTTP-Referer': 'https://greenli8.com',
+            'X-Title': 'Greenli8 AI'
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: idea }
+            ]
+          }),
+          signal: _signal
+        });
           const data = await res.json() as any;
           if (!res.ok) throw new Error(data.error?.message || `OpenRouter error ${res.status}`);
           console.log(`[AI] OpenRouter model ${model} success`);
@@ -160,7 +160,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
   if (!attachment && env.sarvamKey) {
     try {
       console.log('[AI] Attempting Sarvam...');
-      return await callWithTimeout(async (signal) => {
+      return await callWithTimeout(async (_signal) => {
         const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -174,7 +174,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
               { role: 'user', content: idea }
             ]
           }),
-          signal
+          signal: _signal
         });
         const data = await res.json() as any;
         if (!res.ok) throw new Error(`Sarvam error ${res.status}`);

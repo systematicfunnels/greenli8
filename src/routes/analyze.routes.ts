@@ -1,5 +1,6 @@
 import express, { Response } from 'express';
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import auth, { AuthRequest } from '../middleware/auth.js';
 import prisma from '../config/prisma.js';
 import { analyzeIdea, chatWithAI } from '../services/aiService.js';
@@ -32,7 +33,14 @@ router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Respons
     // 2. Run AI Analysis
     const result = await analyzeIdea(idea, attachment as any);
 
-    // 3. Save report
+    // 3. Save report with complete data
+    const completeReport = {
+      ...result,
+      id: randomUUID(),
+      createdAt: Date.now(),
+      originalIdea: idea
+    };
+
     await prisma.report.create({
       data: {
         userId: user.id,
@@ -41,11 +49,11 @@ router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Respons
         viabilityScore: result.viabilityScore,
         oneLineTakeaway: result.oneLineTakeaway || '',
         marketReality: result.marketReality || '',
-        fullReportData: result
+        fullReportData: completeReport
       }
     });
 
-    res.json(result);
+    res.json(completeReport);
   } catch (error: any) {
     // 4. Refund credit if deduction happened but AI/Save failed
     if (creditDeducted && req.user?.email) {

@@ -1,16 +1,17 @@
 import dotenv from 'dotenv';
+import logger from '../utils/logger.js';
 dotenv.config();
 
 const required = ['DATABASE_URL', 'JWT_SECRET', 'STRIPE_SECRET_KEY'];
 
 required.forEach(key => {
   if (!process.env[key]) {
-    console.error(`ERROR: Missing environment variable: ${key}`);
+    logger.error(`Missing environment variable: ${key}`);
   }
 });
 
 if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-  console.warn('WARNING: JWT_SECRET should be at least 32 characters long');
+  logger.warn('JWT_SECRET should be at least 32 characters long');
 }
 
 export interface Config {
@@ -30,12 +31,12 @@ export interface Config {
 
 const config: Config = {
   port: process.env.PORT || 4242,
-  jwtSecret: process.env.JWT_SECRET || '',
+  jwtSecret: process.env.JWT_SECRET ?? (() => { throw new Error('JWT_SECRET is required') })(),
   nodeEnv: process.env.NODE_ENV || 'development',
-  databaseUrl: process.env.DATABASE_URL || '',
+  databaseUrl: process.env.DATABASE_URL ?? (() => { throw new Error('DATABASE_URL is required') })(),
   
   // AI Keys
-  geminiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || '',
+  geminiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || (() => { throw new Error('GEMINI_API_KEY is required') })(),
   sarvamKey: process.env.SARVAM_API_KEY || '',
   openRouterKey: process.env.OPENROUTER_API_KEY || '',
   
@@ -52,7 +53,7 @@ const config: Config = {
 };
 
 // Log loaded config (masked)
-console.log('[Config] Loaded environment variables:', {
+logger.info('Loaded environment variables', {
   PORT: config.port,
   NODE_ENV: config.nodeEnv,
   DATABASE_URL: config.databaseUrl ? '***' : 'MISSING',
