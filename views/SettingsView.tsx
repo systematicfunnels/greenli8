@@ -339,59 +339,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         )}
 
         {activeTab === 'api_keys' && (
-           <Card title="Custom API Keys">
-              <div className="space-y-4">
-                 <p className="text-sm text-slate-600 mb-4">
-                    Add your own AI provider API keys for better reliability and control. Your keys are stored securely and used only for your requests.
-                 </p>
-                 
-                 <div className="flex gap-2">
-                    <Button 
-                       onClick={onNavigateToApiKeys}
-                       className="flex-1 gap-2"
-                    >
-                       <Key size={16} />
-                       Manage API Keys
-                    </Button>
-                    <Button 
-                       variant="outline"
-                       onClick={() => setIsAddModelModalOpen(true)}
-                       className="gap-2"
-                    >
-                       Add Model
-                    </Button>
-                 </div>
-
-                 {customModels.length > 0 && (
-                   <div className="mt-6 space-y-3">
-                     <h4 className="text-sm font-semibold text-slate-700">Custom Models Added</h4>
-                     <div className="space-y-2">
-                       {customModels.map((m) => (
-                         <div key={m.id} className="flex items-center justify-between p-3 bg-slate-50 border border-slate-200 rounded-lg group">
-                           <div>
-                             <p className="text-sm font-medium text-slate-900 capitalize">{m.provider} - {m.model}</p>
-                             <p className="text-xs text-slate-500 font-mono">••••••••{m.apiKey.slice(-4)}</p>
-                           </div>
-                           <button 
-                             onClick={() => removeModel(m.id)}
-                             className="text-slate-400 hover:text-rose-500 transition-colors p-1"
-                             title="Remove model"
-                           >
-                             <Trash2 size={16} />
-                           </button>
-                         </div>
-                       ))}
-                     </div>
+           <div className="space-y-6">
+             <Card title="Custom API Keys">
+                <div className="space-y-4">
+                   <p className="text-sm text-slate-600 mb-4">
+                      Add your own AI provider API keys for better reliability and control. Your keys are stored securely and used only for your requests.
+                   </p>
+                   
+                   <div className="flex gap-2">
+                      <Button 
+                         onClick={onNavigateToApiKeys}
+                         className="flex-1 gap-2"
+                      >
+                         <Key size={16} />
+                         Manage API Keys
+                      </Button>
+                      <Button 
+                         variant="outline"
+                         onClick={() => setIsAddModelModalOpen(true)}
+                         className="gap-2"
+                      >
+                         Add Model
+                      </Button>
                    </div>
-                 )}
-                 
-                 <div className="text-xs text-slate-500 space-y-1 pt-2">
-                    <p>• Supports Google Gemini, OpenRouter, and Sarvam AI</p>
-                    <p>• Custom keys override environment keys</p>
-                    <p>• Keys are encrypted and stored securely</p>
+                   
+                   <div className="text-xs text-slate-500 space-y-1 pt-2">
+                      <p>• Supports Google Gemini, OpenRouter, and Sarvam AI</p>
+                      <p>• Custom keys override environment keys</p>
+                      <p>• Keys are encrypted and stored securely</p>
+                   </div>
+                </div>
+             </Card>
+
+             {customModels.length > 0 && (
+               <Card title="Configured Models">
+                 <div className="divide-y divide-slate-100">
+                   {customModels.map((m) => (
+                     <div key={m.id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between group">
+                       <div className="flex items-center gap-4">
+                         <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100">
+                           {m.provider === 'gemini' ? '🤖' : m.provider === 'openrouter' ? '🔄' : m.provider === 'sarvam' ? '🇮🇳' : '🔑'}
+                         </div>
+                         <div>
+                           <p className="text-sm font-semibold text-slate-900 capitalize">{m.provider}</p>
+                           <p className="text-xs text-slate-500">{m.model}</p>
+                         </div>
+                       </div>
+                       <div className="flex items-center gap-3">
+                         <div className="hidden sm:block px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold uppercase tracking-wider border border-emerald-100">
+                           Active
+                         </div>
+                         <button 
+                           onClick={() => removeModel(m.id)}
+                           className="text-slate-400 hover:text-rose-500 transition-colors p-2 hover:bg-rose-50 rounded-lg"
+                           title="Remove model"
+                         >
+                           <Trash2 size={18} />
+                         </button>
+                       </div>
+                     </div>
+                   ))}
                  </div>
-              </div>
-           </Card>
+               </Card>
+             )}
+           </div>
         )}
       </div>
 
