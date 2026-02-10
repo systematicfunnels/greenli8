@@ -9,6 +9,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { Resend } from 'resend';
 import { rateLimit } from 'express-rate-limit';
+import { z } from 'zod';
 import { SYSTEM_PROMPTS } from './config/prompts.js';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
@@ -625,21 +626,22 @@ const validateUserProfile = (data) => {
 
 app.put('/api/users/profile', authenticateToken, async (req, res) => {
   const email = req.user.email;
-  const data = req.body;
   
-  // Security: Block sensitive field updates BEFORE database operation
-  delete data.id;
-  delete data.email;
-  delete data.password;
-  delete data.createdAt;
-  delete data.credits; 
-  delete data.isPro;
-  
-  // Input validation
-  const validationErrors = validateUserProfile(data);
-  if (validationErrors.length > 0) {
-    return res.status(400).json({ error: validationErrors.join(', ') });
+  // Validation Schema
+  const profileSchema = z.object({
+    name: z.string().min(2).max(50).optional(),
+    preferences: z.record(z.any()).optional(),
+  }).strict();
+
+  const parseResult = profileSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    return res.status(400).json({ 
+      error: 'Invalid update data', 
+      details: parseResult.error.format() 
+    });
   }
+
+  const data = parseResult.data;
 
   try {
     const user = await prisma.user.update({

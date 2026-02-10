@@ -41,6 +41,9 @@ model Report {
   
   createdAt       DateTime @default(now())
   feedback        Feedback[]
+
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model CreditTransaction {
@@ -50,6 +53,8 @@ model CreditTransaction {
   amount    Int      // Positive for purchase, negative for usage
   reason    String   // e.g., "Report Generation", "Purchase: Pro Plan"
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Feedback {
