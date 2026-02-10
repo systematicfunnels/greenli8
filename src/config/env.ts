@@ -47,8 +47,17 @@ const config: Config = {
   // App Config
   allowedOrigins: process.env.ALLOWED_ORIGINS 
     ? process.env.ALLOWED_ORIGINS.split(',').map(origin => origin.trim())
-    : ['http://localhost:5173', 'https://greenli8.vercel.app'],
-  emailFrom: process.env.EMAIL_FROM || 'Greenli8 AI <onboarding@resend.dev>'
+    : ['http://localhost:5173', 'https://greenli8.vercel.app', 'https://accounts.google.com'],
+  emailFrom: process.env.EMAIL_FROM || 'onboarding@resend.dev'
 };
+
+// Log loaded config (masked)
+console.log('[Config] Loaded environment variables:', {
+  PORT: config.port,
+  NODE_ENV: config.nodeEnv,
+  DATABASE_URL: config.databaseUrl ? '***' : 'MISSING',
+  JWT_SECRET: config.jwtSecret ? '***' : 'MISSING',
+  GEMINI_KEY: config.geminiKey ? '***' : 'MISSING',
+});
 
 export default config;

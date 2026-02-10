@@ -84,7 +84,7 @@ export const googleLogin = async (token: string) => {
   if (!userInfoRes.ok) {
     const errorText = await userInfoRes.text();
     console.error('[Auth Service] Google userinfo failed:', userInfoRes.status, errorText);
-    const error = new Error("Invalid Google token") as any;
+    const error = new Error(`Google validation failed: ${userInfoRes.status} ${errorText}`) as any;
     error.status = 401;
     throw error;
   }
@@ -96,6 +96,7 @@ export const googleLogin = async (token: string) => {
   let isNewUser = false;
 
   if (!user) {
+    console.log('[Auth Service] Creating new user for:', email);
     isNewUser = true;
     user = await prisma.user.create({
       data: {
@@ -111,12 +112,14 @@ export const googleLogin = async (token: string) => {
       }
     });
   } else if (!user.googleId) {
+    console.log('[Auth Service] Linking Google account to existing user:', email);
     user = await prisma.user.update({
       where: { email },
       data: { googleId }
     });
   }
 
+  console.log('[Auth Service] Signing JWT for user:', user.id);
   const jwtToken = jwt.sign(
     { email: user.email, id: user.id, isPro: user.isPro },
     env.jwtSecret,

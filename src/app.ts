@@ -28,23 +28,17 @@ app.use(helmet({
       styleSrc: ["'self'", "'unsafe-inline'"],
       scriptSrc: ["'self'", "https://accounts.google.com", "https://apis.google.com", "https://cdn.jsdelivr.net"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", ...env.allowedOrigins, "*.vercel.app", "https://accounts.google.com", "https://www.googleapis.com"],
+      connectSrc: ["'self'", "https://accounts.google.com", "https://www.googleapis.com", ...env.allowedOrigins],
       frameSrc: ["'self'", "https://accounts.google.com"],
     }
   },
   crossOriginEmbedderPolicy: false,
-  crossOriginOpenerPolicy: false, // Let the frontend/Vercel handle this
+  crossOriginOpenerPolicy: false,
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 app.use(cors({ 
-  origin: (origin, callback) => {
-    if (!origin || env.allowedOrigins.includes(origin) || origin.endsWith('.vercel.app')) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  origin: true, // Allow all origins temporarily to debug CORS
   credentials: true 
 }));
 
