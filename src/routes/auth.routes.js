@@ -23,16 +23,6 @@ const LoginSchema = z.object({
   password: z.string()
 });
 
-router.post('/waitlist', asyncHandler(async (req, res) => {
-  const { email, source } = WaitlistSchema.parse(req.body);
-  const entry = await prisma.waitlist.upsert({
-    where: { email },
-    update: { source, updatedAt: new Date() },
-    create: { email, source }
-  });
-  res.json({ success: true, id: entry.id });
-}));
-
 router.post('/signup', asyncHandler(async (req, res) => {
   const validated = SignupSchema.parse(req.body);
   const result = await userService.signup(validated);

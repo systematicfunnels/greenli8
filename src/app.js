@@ -10,8 +10,10 @@ import authRoutes from './routes/auth.routes.js';
 import userRoutes from './routes/user.routes.js';
 import analyzeRoutes from './routes/analyze.routes.js';
 import reportRoutes from './routes/report.routes.js';
-
 import paymentRoutes from './routes/payment.routes.js';
+import prisma from './config/prisma.js';
+import { z } from 'zod';
+import asyncHandler from './utils/asyncHandler.js';
 
 const app = express();
 
@@ -65,13 +67,29 @@ app.use('/api', rateLimit({
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
-app.use('/api/analyze', analyzeRoutes);
+app.use('/api', analyzeRoutes); // Mounted at /api to support /api/analyze and /api/chat
 app.use('/api/reports', reportRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', uptime: process.uptime() });
 });
+
+// Waitlist (Public)
+const WaitlistSchema = z.object({
+  email: z.string().email(),
+  source: z.string().optional()
+});
+
+app.post('/api/waitlist', asyncHandler(async (req, res) => {
+  const { email, source } = WaitlistSchema.parse(req.body);
+  const entry = await prisma.waitlist.upsert({
+    where: { email },
+    update: { source, updatedAt: new Date() },
+    create: { email, source }
+  });
+  res.json({ success: true, id: entry.id });
+}));
 
 // Error handling
 app.use(errorHandler);
