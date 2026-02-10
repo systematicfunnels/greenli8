@@ -67,19 +67,22 @@ export const api = {
       body: JSON.stringify({ token }),
     });
 
-    if (!res.ok) {
-        const text = await res.text();
-        let errorMessage = 'Google Login failed';
-        try {
-            const err = JSON.parse(text);
-            errorMessage = err.error || errorMessage;
-        } catch (e) {
-            errorMessage = text.slice(0, 100) || res.statusText;
-        }
-        throw new Error(errorMessage);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // Not JSON
     }
 
-    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
+    }
+
+    if (!data || !data.token) {
+      throw new Error("Invalid response from server");
+    }
+
     localStorage.setItem('Greenli8_token', data.token);
     return data.user;
   },
@@ -103,18 +106,20 @@ export const api = {
       headers: getHeaders(),
       body: JSON.stringify({ idea, attachment }),
     });
-    if (!res.ok) {
-        const text = await res.text();
-        let errorMessage = 'Analysis failed';
-        try {
-            const err = JSON.parse(text);
-            errorMessage = err.error || errorMessage;
-        } catch (e) {
-            errorMessage = text.slice(0, 100) || res.statusText;
-        }
-        throw new Error(errorMessage);
+    
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // Not JSON
     }
-    return res.json();
+
+    if (!res.ok) {
+      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
+    }
+    
+    return data;
   },
 
   chat: async (message: string, context: any): Promise<string> => {
@@ -152,18 +157,20 @@ export const api = {
      const res = await fetch(`${API_URL}/reports`, {
        headers: getHeaders(),
      });
-     if (!res.ok) {
-         const text = await res.text();
-         let errorMessage = 'Failed to fetch history';
-         try {
-             const err = JSON.parse(text);
-             errorMessage = err.error || errorMessage;
-         } catch (e) {
-             errorMessage = text.slice(0, 100) || res.statusText;
-         }
-         throw new Error(errorMessage);
+     
+     const text = await res.text();
+     let data;
+     try {
+       data = JSON.parse(text);
+     } catch (e) {
+       // Not JSON
      }
-     return res.json();
+
+     if (!res.ok) {
+       throw new Error(data?.error || text.slice(0, 100) || res.statusText);
+     }
+     
+     return data || [];
    },
 
   // --- Marketing ---

@@ -46,7 +46,8 @@ const OPENROUTER_MODELS = [
   "google/gemini-2.0-flash-exp:free",
   "deepseek/deepseek-chat:free",
   "mistralai/mistral-7b-instruct:free",
-  "openrouter/auto" // OpenRouter's auto-selector
+  "meta-llama/llama-3.1-8b-instruct:free",
+  "openrouter/auto"
 ];
 const OPENROUTER_DEFAULT_MODEL = process.env.OPENROUTER_MODEL || OPENROUTER_MODELS[0];
 
@@ -93,12 +94,16 @@ const callOpenRouterAI = async (prompt, systemInstruction, model = OPENROUTER_DE
   if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout for OpenRouter
+  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout for OpenRouter sequential retries
 
   const tryModel = async (modelIndex) => {
-    const currentModel = OPENROUTER_MODELS[modelIndex] || model;
+    const currentModel = OPENROUTER_MODELS[modelIndex];
+    if (!currentModel) {
+      throw new Error("All OpenRouter models failed or were exhausted.");
+    }
     
     try {
+      console.log(`--- OpenRouter: Trying model ${currentModel} (${modelIndex + 1}/${OPENROUTER_MODELS.length}) ---`);
       const response = await fetch(OPENROUTER_URL, {
         method: 'POST',
         headers: {
@@ -120,23 +125,27 @@ const callOpenRouterAI = async (prompt, systemInstruction, model = OPENROUTER_DE
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         const errorMsg = errorData.error?.message || response.statusText;
+        console.warn(`OpenRouter model ${currentModel} failed: ${errorMsg}`);
         
-        // If current model fails, try the next one in the list
         if (modelIndex < OPENROUTER_MODELS.length - 1) {
-          console.warn(`OpenRouter model ${currentModel} failed (${errorMsg}). Trying next...`);
           return tryModel(modelIndex + 1);
         }
-        
         throw new Error(`OpenRouter Error: ${errorMsg}`);
       }
 
       const data = await response.json();
       if (!data.choices?.[0]?.message?.content) {
+        console.warn(`OpenRouter model ${currentModel} returned empty content.`);
+        if (modelIndex < OPENROUTER_MODELS.length - 1) {
+          return tryModel(modelIndex + 1);
+        }
         throw new Error("OpenRouter returned an empty response.");
       }
       return data.choices[0].message.content;
     } catch (err) {
       if (err.name === 'AbortError') throw err;
+      console.error(`Error with model ${currentModel}:`, err.message);
+      
       if (modelIndex < OPENROUTER_MODELS.length - 1) {
         return tryModel(modelIndex + 1);
       }
@@ -145,13 +154,13 @@ const callOpenRouterAI = async (prompt, systemInstruction, model = OPENROUTER_DE
   };
 
   try {
-    const initialIndex = OPENROUTER_MODELS.indexOf(model);
-    const result = await tryModel(initialIndex === -1 ? 0 : initialIndex);
+    const initialIndex = Math.max(0, OPENROUTER_MODELS.indexOf(model));
+    const result = await tryModel(initialIndex);
     clearTimeout(timeoutId);
     return result;
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') throw new Error("OpenRouter request timed out after trying all models");
+    if (error.name === 'AbortError') throw new Error("OpenRouter request timed out after trying available models");
     throw error;
   }
 };
@@ -353,18 +362,25 @@ app.post('/api/waitlist', async (req, res) => {
 
 app.post('/api/auth/google', async (req, res) => {
   const { token } = req.body;
+  if (!token) return res.status(400).json({ error: "Google token is required" });
+
   try {
     // Verify Access Token by fetching user info
+    console.log("--- Verifying Google Token ---");
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { Authorization: `Bearer ${token}` }
     });
     
     if (!userInfoRes.ok) {
-        throw new Error("Failed to validate Google token");
+        const errorText = await userInfoRes.text();
+        console.error("Google Token Verification Failed:", errorText);
+        throw new Error("Failed to validate Google token: " + (userInfoRes.statusText || "Unauthorized"));
     }
     
     const payload = await userInfoRes.json();
     const { email, name, sub: googleId } = payload;
+
+    if (!email) throw new Error("Google response did not include an email");
 
     let user = await prisma.user.findUnique({ where: { email } });
     let isNewUser = false;
@@ -385,12 +401,14 @@ app.post('/api/auth/google', async (req, res) => {
           }
         }
       });
+      console.log(`--- Created new user via Google: ${email} ---`);
     } else {
         if (!user.googleId) {
             user = await prisma.user.update({
                 where: { email },
                 data: { googleId }
             });
+            console.log(`--- Linked existing user to Google: ${email} ---`);
         }
     }
 
@@ -404,8 +422,8 @@ app.post('/api/auth/google', async (req, res) => {
     res.json({ user: userWithoutPassword, token: jwtToken });
 
   } catch (error) {
-    console.error("Google Auth Error:", error);
-    res.status(401).json({ error: "Google authentication failed" });
+    console.error("Google Auth Error:", error.message);
+    res.status(401).json({ error: error.message || "Google authentication failed" });
   }
 });
 
@@ -834,17 +852,22 @@ app.get('/api/reports', authenticateToken, async (req, res) => {
     if (!user) return res.status(404).json({ error: 'User not found' });
 
     const history = user.reports.map(r => {
-      const reportData = (r.fullReportData && typeof r.fullReportData === 'object') 
-        ? r.fullReportData 
-        : {};
+      let reportData = {};
+      try {
+        reportData = (r.fullReportData && typeof r.fullReportData === 'object') 
+          ? r.fullReportData 
+          : (typeof r.fullReportData === 'string' ? JSON.parse(r.fullReportData) : {});
+      } catch (e) {
+        console.warn(`Malformed report data for report ${r.id}:`, e.message);
+      }
 
       return {
         ...reportData,
         id: r.id,
         createdAt: new Date(r.createdAt).getTime(),
         originalIdea: r.originalIdea,
-        summaryVerdict: r.summaryVerdict || reportData.summaryVerdict,
-        viabilityScore: r.viabilityScore || reportData.viabilityScore
+        summaryVerdict: r.summaryVerdict || reportData.summaryVerdict || "Unknown",
+        viabilityScore: r.viabilityScore || reportData.viabilityScore || 0
       };
     });
 
