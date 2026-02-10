@@ -4,13 +4,14 @@ import { ArrowLeft, Sparkles, Upload, FileText, X, AlertCircle, Mic, Square, Tra
 
 interface InputViewProps {
   onBack: () => void;
-  onSubmit: (idea: string, attachment?: { mimeType: string, data: string }) => void;
+  onSubmit: (idea: string, attachment?: { mimeType: string, data: string }, preferredModel?: string) => void;
   credits?: number;
   isLifetime?: boolean;
 }
 
 export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits, isLifetime }) => {
   const [idea, setIdea] = useState("");
+  const [preferredModel, setPreferredModel] = useState("auto");
   const [attachment, setAttachment] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   
@@ -184,11 +185,11 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits,
         return;
       }
       
-      if (attachment) {
-          onSubmit(idea, { mimeType: attachment.mimeType, data: attachment.data });
-      } else {
-          onSubmit(idea);
-      }
+      onSubmit(
+        idea.trim() || "Idea from attachment", 
+        attachment ? { mimeType: attachment.mimeType, data: attachment.data } : undefined,
+        preferredModel
+      );
     }
   };
 
@@ -267,12 +268,27 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits,
         </div>
 
         {/* Text Area */}
-        <textarea 
-          className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-none resize-none text-slate-800 placeholder:text-slate-400 text-lg leading-relaxed mb-6"
-          placeholder="e.g. A marketplace for freelance chefs to cook weekly meals in people's homes..."
-          value={idea}
-          onChange={(e) => setIdea(e.target.value)}
-        />
+        <div className="mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <label className="text-sm font-semibold text-slate-700">Description</label>
+            <select 
+              value={preferredModel}
+              onChange={(e) => setPreferredModel(e.target.value)}
+              className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-600 cursor-pointer"
+            >
+              <option value="auto">Auto (Best available)</option>
+              <option value="gemini">Google Gemini 2.0</option>
+              <option value="openrouter">OpenRouter (DeepSeek/Mistral)</option>
+              <option value="sarvam">Sarvam AI (Indian Market)</option>
+            </select>
+          </div>
+          <textarea 
+            className="w-full h-32 p-4 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 focus:outline-none resize-none text-slate-800 placeholder:text-slate-400 text-lg leading-relaxed"
+            placeholder="e.g. A marketplace for freelance chefs to cook weekly meals in people's homes..."
+            value={idea}
+            onChange={(e) => setIdea(e.target.value)}
+          />
+        </div>
 
         {/* Attachments Section */}
         <div className="space-y-4">

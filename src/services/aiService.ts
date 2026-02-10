@@ -46,7 +46,12 @@ const parseResponse = (text: string): any => {
 /**
  * Core analysis service with multi-provider failover and custom API key support
  */
-export const analyzeIdea = async (idea: string, attachment: { mimeType: string; data: string } | null = null, customApiKeys?: { gemini?: string; openRouter?: string; sarvam?: string }) => {
+export const analyzeIdea = async (
+  idea: string, 
+  attachment: { mimeType: string; data: string } | null = null, 
+  customApiKeys?: { gemini?: string; openRouter?: string; sarvam?: string },
+  preferredModel: string = 'auto'
+) => {
   const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
   const startTime = Date.now();
   const GLOBAL_TIMEOUT = 8500; // 8.5 seconds total for all providers
@@ -58,92 +63,118 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
   const openRouterKey = customApiKeys?.openRouter || env.openRouterKey;
   const sarvamKey = customApiKeys?.sarvam || env.sarvamKey;
 
-  console.log(`[AI] Starting analysis. Keys present: Gemini=${!!geminiKey}, OpenRouter=${!!openRouterKey}, Sarvam=${!!sarvamKey}`);
-  console.log(`[AI] Input length: ${idea.length} chars, Attachment: ${attachment ? 'Yes' : 'No'}`);
-  console.log(`[AI] Using custom keys: ${customApiKeys ? 'Yes' : 'No'}`);
+  console.log(`[AI] Starting analysis. Preferred: ${preferredModel}, Keys: Gemini=${!!geminiKey}, OpenRouter=${!!openRouterKey}, Sarvam=${!!sarvamKey}`);
+  
+  // Define provider attempts based on preference
+  const attempts: Array<{ name: string; key: string | undefined; run: () => Promise<any> }> = [
+    {
+      name: 'gemini',
+      key: geminiKey,
+      run: async () => {
+        console.log('[AI] Attempting Gemini...');
+        const { GoogleGenAI } = await import('@google/genai');
+        const ai = new GoogleGenAI({ apiKey: geminiKey! });
 
-  // 1. Try Gemini (Primary - Supports Attachments)
-  if (geminiKey) {
-    try {
-      console.log('[AI] Attempting Gemini...');
-      const { GoogleGenAI } = await import('@google/genai');
-      const ai = new GoogleGenAI({ apiKey: geminiKey });
+        return await callWithTimeout(async (_signal) => {
+          const parts: any[] = [];
+          if (attachment) {
+            parts.push({
+              inlineData: {
+                mimeType: attachment.mimeType,
+                data: attachment.data
+              }
+            });
+          }
+          parts.push({ text: `Analyze this startup idea: ${idea}` });
 
-      return await callWithTimeout(async (_signal) => {
-        const parts: any[] = [];
-        if (attachment) {
-          parts.push({
-            inlineData: {
-              mimeType: attachment.mimeType,
-              data: attachment.data
-            }
-          });
-        }
-        parts.push({ text: `Analyze this startup idea: ${idea}` });
-
-        const result = await ai.models.generateContent({
-          model: 'gemini-2.0-flash',
-          contents: [{ role: 'user', parts }],
-          config: {
-            systemInstruction: systemPrompt,
-            responseMimeType: "application/json",
-            temperature: 0.7, // Add a bit of creativity for better analysis
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
-                oneLineTakeaway: { type: Type.STRING },
-                marketReality: { type: Type.STRING },
-                pros: { type: Type.ARRAY, items: { type: Type.STRING } },
-                cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-                competitors: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      name: { type: Type.STRING },
-                      differentiation: { type: Type.STRING }
+          const result = await ai.models.generateContent({
+            model: 'gemini-2.0-flash',
+            contents: [{ role: 'user', parts }],
+            config: {
+              systemInstruction: systemPrompt,
+              responseMimeType: "application/json",
+              temperature: 0.7,
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
+                  oneLineTakeaway: { type: Type.STRING },
+                  marketReality: { type: Type.STRING },
+                  pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  competitors: {
+                    type: Type.ARRAY,
+                    items: {
+                      type: Type.OBJECT,
+                      properties: {
+                        name: { type: Type.STRING },
+                        differentiation: { type: Type.STRING }
+                      }
                     }
-                  }
-                },
-                viabilityScore: { type: Type.NUMBER },
-                nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+                  },
+                  viabilityScore: { type: Type.NUMBER },
+                  nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+                }
               }
             }
-          }
-        });
-        
-        console.log('[AI] Gemini success');
-        return parseResponse(result.text || '');
-      }, getRemainingTimeout());
-    } catch (_e: any) {
-      console.error('[AI] Gemini failed:', _e.message);
-      logger.warn(`Gemini primary failed: ${_e.message}`);
-    }
-  }
-
-  // 2. Try OpenRouter (Reliability Fallback)
-  if (openRouterKey) {
-    console.log('[AI] Attempting OpenRouter...');
-    for (const model of OPENROUTER_MODELS) {
-      if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) {
-        console.warn('[AI] OpenRouter skipped - nearly out of time');
-        break;
+          });
+          console.log('[AI] Gemini success');
+          return parseResponse(result.text || '');
+        }, getRemainingTimeout());
       }
-
-      try {
-        console.log(`[AI] Trying OpenRouter model: ${model}`);
+    },
+    {
+      name: 'openrouter',
+      key: openRouterKey,
+      run: async () => {
+        console.log('[AI] Attempting OpenRouter...');
+        for (const model of OPENROUTER_MODELS) {
+          if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) break;
+          try {
+            return await callWithTimeout(async (signal) => {
+              const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${openRouterKey!}`,
+                  'Content-Type': 'application/json',
+                  'HTTP-Referer': 'https://greenli8.vercel.app',
+                  'X-Title': 'Greenli8 AI Analysis'
+                },
+                body: JSON.stringify({
+                  model: model,
+                  messages: [
+                    { role: 'system', content: systemPrompt },
+                    { role: 'user', content: idea }
+                  ]
+                }),
+                signal
+              });
+              const data = await res.json() as any;
+              if (!res.ok) throw new Error(data.error?.message || `OpenRouter error ${res.status}`);
+              return parseResponse(data.choices[0].message.content);
+            }, getRemainingTimeout());
+          } catch (e) {
+            console.error(`[AI] OpenRouter model ${model} failed`);
+          }
+        }
+        throw new Error("OpenRouter failed all models");
+      }
+    },
+    {
+      name: 'sarvam',
+      key: sarvamKey,
+      run: async () => {
+        if (attachment) throw new Error("Sarvam does not support attachments");
+        console.log('[AI] Attempting Sarvam...');
         return await callWithTimeout(async (signal) => {
-          const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
             method: 'POST',
             headers: {
-              'Authorization': `Bearer ${openRouterKey}`,
-              'Content-Type': 'application/json',
-              'HTTP-Referer': 'https://greenli8.vercel.app',
-              'X-Title': 'Greenli8 AI Analysis'
+              'api-subscription-key': sarvamKey!,
+              'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              model: model,
+              model: 'sarvam-m',
               messages: [
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: idea }
@@ -152,49 +183,35 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
             signal
           });
           const data = await res.json() as any;
-          if (!res.ok) throw new Error(data.error?.message || `OpenRouter error ${res.status}`);
-          console.log(`[AI] OpenRouter model ${model} success`);
+          if (!res.ok) throw new Error(`Sarvam error ${res.status}`);
           return parseResponse(data.choices[0].message.content);
         }, getRemainingTimeout());
-      } catch (_e: any) {
-        console.error(`[AI] OpenRouter model ${model} failed:`, _e.message);
-        logger.warn(`OpenRouter model ${model} failed: ${_e.message || 'Unknown error'}`);
       }
     }
-  }
+  ];
 
-  // 3. Try Sarvam (Final Fallback - Text only)
-  if (!attachment && sarvamKey) {
-    try {
-      console.log('[AI] Attempting Sarvam...');
-      return await callWithTimeout(async (signal) => {
-        const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'api-subscription-key': sarvamKey,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            model: 'sarvam-m',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: idea }
-            ]
-          }),
-          signal
-        });
-        const data = await res.json() as any;
-        if (!res.ok) throw new Error(`Sarvam error ${res.status}`);
-        console.log('[AI] Sarvam success');
-        return parseResponse(data.choices[0].message.content);
-      }, getRemainingTimeout());
-    } catch (_e: any) {
-      console.error('[AI] Sarvam failed:', _e.message);
-      logger.warn(`Sarvam AI failed: ${_e.message || 'Unknown error'}`);
+  // Reorder attempts based on preferredModel
+  let orderedAttempts = attempts;
+  if (preferredModel !== 'auto') {
+    const preferred = attempts.find(a => a.name === preferredModel);
+    if (preferred) {
+      orderedAttempts = [preferred, ...attempts.filter(a => a.name !== preferredModel)];
     }
   }
 
-  throw new Error('All AI providers failed. Please check your API keys configuration: Gemini (API_KEY), Sarvam (SARVAM_API_KEY), or OpenRouter (OPENROUTER_API_KEY).');
+  // Execute attempts in order
+  for (const attempt of orderedAttempts) {
+    if (!attempt.key) continue;
+    if (Date.now() - startTime > GLOBAL_TIMEOUT - 1000) break;
+    
+    try {
+      return await attempt.run();
+    } catch (e: any) {
+      console.error(`[AI] ${attempt.name} failed:`, e.message);
+    }
+  }
+
+  throw new Error('All AI providers failed. Please check your API keys configuration.');
 };
 
 /**

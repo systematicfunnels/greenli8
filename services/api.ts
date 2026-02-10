@@ -129,7 +129,7 @@ export const api = {
   },
 
   // --- AI ---
-  analyzeIdea: async (idea: string, attachment?: { mimeType: string, data: string }): Promise<ValidationReport> => {
+  analyzeIdea: async (idea: string, attachment?: { mimeType: string, data: string }, preferredModel?: string): Promise<ValidationReport> => {
     // Ensure idea is at least a minimum length or attachment exists
     if (!idea.trim() && !attachment) {
       throw new Error("Please provide an idea or an attachment.");
@@ -154,6 +154,7 @@ export const api = {
       body: JSON.stringify({ 
         idea: idea.trim() || "Idea from attachment", 
         attachment,
+        preferredModel, // Pass preferred model to backend
         customApiKeys // Pass custom keys to backend
       }),
     });
