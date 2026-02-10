@@ -25,14 +25,14 @@ if (!JWT_SECRET || JWT_SECRET.length < 32) {
 }
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Greenli8 AI <onboarding@resend.dev>';
 
-// Initialize Gemini on Backend
-const GEMINI_API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
-
-if (!GEMINI_API_KEY) {
-    console.error("❌ FATAL: Gemini API_KEY is missing. Please add API_KEY to your environment variables.");
-    process.exit(1);
-}
-const genAI = new GoogleGenAI(GEMINI_API_KEY);
+// Initialize Gemini Helper
+const getGenAI = () => {
+  const GEMINI_API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
+  if (!GEMINI_API_KEY) {
+      throw new Error("Gemini API_KEY is missing. Please add API_KEY to your environment variables.");
+  }
+  return new GoogleGenAI(GEMINI_API_KEY);
+};
 
 // Initialize Sarvam AI config
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
@@ -449,7 +449,7 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
         }
         if (idea) parts.push({ text: idea });
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = getGenAI().getGenerativeModel({ model: "gemini-2.0-flash" });
 
         const response = await model.generateContent({
           contents: [{ role: 'user', parts }],
@@ -577,7 +577,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
             }
         }
 
-        const model = genAI.getGenerativeModel({ 
+        const model = getGenAI().getGenerativeModel({ 
             model: "gemini-2.0-flash-exp",
             systemInstruction: SYSTEM_PROMPTS.CHAT_COFOUNDER
                 .replace('{{originalIdea}}', context.originalIdea)
