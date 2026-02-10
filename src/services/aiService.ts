@@ -54,6 +54,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
   const getRemainingTimeout = () => Math.max(1000, GLOBAL_TIMEOUT - (Date.now() - startTime));
 
   console.log(`[AI] Starting analysis. Keys present: Gemini=${!!env.geminiKey}, OpenRouter=${!!env.openRouterKey}, Sarvam=${!!env.sarvamKey}`);
+  console.log(`[AI] Input length: ${idea.length} chars, Attachment: ${attachment ? 'Yes' : 'No'}`);
 
   // 1. Try Gemini (Primary - Supports Attachments)
   if (env.geminiKey) {
@@ -187,7 +188,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
     }
   }
 
-  throw new Error('All AI providers failed. Please try again in a few minutes.');
+  throw new Error('All AI providers failed. Please check your API keys configuration: Gemini (API_KEY), Sarvam (SARVAM_API_KEY), or OpenRouter (OPENROUTER_API_KEY).');
 };
 
 /**
