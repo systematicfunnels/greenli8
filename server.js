@@ -146,9 +146,10 @@ app.use(helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'"],
+      scriptSrc: ["'self'", "https://accounts.google.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", ...allowedOrigins, "*.vercel.app"]
+      connectSrc: ["'self'", ...allowedOrigins, "*.vercel.app", "https://accounts.google.com"],
+      frameSrc: ["'self'", "https://accounts.google.com"],
     }
   },
   crossOriginEmbedderPolicy: false,
@@ -176,6 +177,8 @@ app.use(cors({
 app.use((req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
   res.setHeader('Cross-Origin-Embedder-Policy', 'credentialless');
+  // Allow popups to communicate back to the main window
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
   next();
 });
 
@@ -484,14 +487,20 @@ const authenticateToken = (req, res, next) => {
 
   if (!token) {
     console.warn(`Auth failed: No token provided for ${req.method} ${req.path}`);
-    return res.status(401).json({ error: "Authentication token required" });
+    return res.status(401).json({ 
+      error: "Authentication token required",
+      code: "MISSING_TOKEN"
+    });
   }
 
   try {
     const user = jwt.verify(token, JWT_SECRET);
     if (!user || !user.id || !user.email) {
       console.error('Auth failed: Invalid token payload');
-      throw new Error('Invalid token payload');
+      return res.status(403).json({ 
+        error: "Invalid token payload",
+        code: "INVALID_PAYLOAD"
+      });
     }
     req.user = user;
     next();
@@ -547,7 +556,7 @@ const LoginSchema = z.object({
 });
 
 const AnalysisSchema = z.object({
-  idea: z.string().min(1, "Idea is required").max(5000, "Idea is too long"),
+  idea: z.string().min(1, "Idea is required").max(10000, "Idea is too long"),
   attachment: z.object({
     mimeType: z.string(),
     data: z.string()
@@ -975,25 +984,33 @@ app.post('/api/chat',
 app.get('/api/users/me',
   authenticateToken,
   asyncHandler(async (req, res) => {
-    const user = await prisma.user.findUnique({ 
-      where: { email: req.user.email },
-      select: {
-        id: true,
-        email: true,
-        name: true,
-        isPro: true,
-        credits: true,
-        preferences: true,
-        createdAt: true,
-        updatedAt: true
+    try {
+      const user = await prisma.user.findUnique({ 
+        where: { email: req.user.email },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          isPro: true,
+          credits: true,
+          preferences: true,
+          createdAt: true,
+          updatedAt: true
+        }
+      });
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
       }
-    });
 
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+      res.json(user);
+    } catch (dbError) {
+      console.error('Database error in /api/users/me:', dbError);
+      res.status(503).json({ 
+        error: 'Service temporarily unavailable. Please try again in a few seconds.',
+        code: 'DATABASE_ERROR'
+      });
     }
-
-    res.json(user);
   })
 );
 
@@ -1133,6 +1150,13 @@ app.use((err, req, res, next) => {
 
   if (statusCode === 500) {
     console.error(`[ERROR] ${req.method} ${req.path}:`, err);
+    // Specifically catch Prisma/DB errors that might not have a status
+    if (err.code?.startsWith('P') || err.message?.includes('prisma') || err.message?.includes('database')) {
+       return res.status(503).json({
+         error: 'Database connection issue. Please wait a moment and refresh.',
+         code: 'DATABASE_ERROR'
+       });
+    }
   } else {
     console.warn(`[WARN] ${req.method} ${req.path} (${statusCode}): ${message}`);
   }
@@ -1140,10 +1164,7 @@ app.use((err, req, res, next) => {
   res.status(statusCode).json({
     error: message,
     code: err.code,
-    ...(process.env.NODE_ENV === 'development' && {
-      stack: err.stack,
-      details: err.details
-    })
+    details: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
 });
 

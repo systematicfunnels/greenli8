@@ -36,6 +36,10 @@ export const api = {
     
     if (data.token) {
       localStorage.setItem('Greenli8_token', data.token);
+      // Wait for localStorage to persist
+      if (localStorage.getItem('Greenli8_token') !== data.token) {
+        console.warn("Token persistence delayed");
+      }
     }
     return data.user;
   },
@@ -61,6 +65,10 @@ export const api = {
 
     if (data.token) {
       localStorage.setItem('Greenli8_token', data.token);
+      // Wait for localStorage to persist
+      if (localStorage.getItem('Greenli8_token') !== data.token) {
+        console.warn("Token persistence delayed");
+      }
     }
     return data.user;
   },
@@ -89,6 +97,10 @@ export const api = {
     }
 
     localStorage.setItem('Greenli8_token', data.token);
+    // Wait for localStorage to persist
+    if (localStorage.getItem('Greenli8_token') !== data.token) {
+      console.warn("Token persistence delayed");
+    }
     return data.user;
   },
 
