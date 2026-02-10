@@ -41,7 +41,14 @@ const SARVAM_URL = 'https://api.sarvam.ai/v1/chat/completions';
 // Initialize OpenRouter config
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const OPENROUTER_FREE_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free";
+const OPENROUTER_MODELS = [
+  "google/gemini-2.0-flash-lite-preview-02-05:free",
+  "google/gemini-2.0-flash-exp:free",
+  "deepseek/deepseek-chat:free",
+  "mistralai/mistral-7b-instruct:free",
+  "openrouter/auto" // OpenRouter's auto-selector
+];
+const OPENROUTER_DEFAULT_MODEL = process.env.OPENROUTER_MODEL || OPENROUTER_MODELS[0];
 
 const callSarvamAI = async (prompt, systemInstruction) => {
   if (!SARVAM_API_KEY) throw new Error("Sarvam API key not configured");
@@ -82,43 +89,69 @@ const callSarvamAI = async (prompt, systemInstruction) => {
   }
 };
 
-const callOpenRouterAI = async (prompt, systemInstruction, model = OPENROUTER_FREE_MODEL) => {
+const callOpenRouterAI = async (prompt, systemInstruction, model = OPENROUTER_DEFAULT_MODEL) => {
   if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
 
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+  const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout for OpenRouter
+
+  const tryModel = async (modelIndex) => {
+    const currentModel = OPENROUTER_MODELS[modelIndex] || model;
+    
+    try {
+      const response = await fetch(OPENROUTER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+          'HTTP-Referer': 'https://greenli8.com', 
+          'X-Title': 'Greenli8 AI'
+        },
+        body: JSON.stringify({
+          model: currentModel,
+          messages: [
+            { role: "system", content: systemInstruction },
+            { role: "user", content: prompt }
+          ]
+        }),
+        signal: controller.signal
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMsg = errorData.error?.message || response.statusText;
+        
+        // If current model fails, try the next one in the list
+        if (modelIndex < OPENROUTER_MODELS.length - 1) {
+          console.warn(`OpenRouter model ${currentModel} failed (${errorMsg}). Trying next...`);
+          return tryModel(modelIndex + 1);
+        }
+        
+        throw new Error(`OpenRouter Error: ${errorMsg}`);
+      }
+
+      const data = await response.json();
+      if (!data.choices?.[0]?.message?.content) {
+        throw new Error("OpenRouter returned an empty response.");
+      }
+      return data.choices[0].message.content;
+    } catch (err) {
+      if (err.name === 'AbortError') throw err;
+      if (modelIndex < OPENROUTER_MODELS.length - 1) {
+        return tryModel(modelIndex + 1);
+      }
+      throw err;
+    }
+  };
 
   try {
-    const response = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-        'HTTP-Referer': 'https://greenli8.com', // Optional for OpenRouter rankings
-        'X-Title': 'Greenli8 AI'
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          { role: "system", content: systemInstruction },
-          { role: "user", content: prompt }
-        ]
-      }),
-      signal: controller.signal
-    });
-
+    const initialIndex = OPENROUTER_MODELS.indexOf(model);
+    const result = await tryModel(initialIndex === -1 ? 0 : initialIndex);
     clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(`OpenRouter Error: ${errorData.error?.message || response.statusText}`);
-    }
-
-    const data = await response.json();
-    return data.choices[0].message.content;
+    return result;
   } catch (error) {
     clearTimeout(timeoutId);
-    if (error.name === 'AbortError') throw new Error("OpenRouter request timed out");
+    if (error.name === 'AbortError') throw new Error("OpenRouter request timed out after trying all models");
     throw error;
   }
 };
@@ -469,10 +502,19 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
           console.log("--- PRIMARY: Attempting analysis with Sarvam AI ---");
           const sarvamResponse = await callSarvamAI(idea, systemPrompt);
           
+          // Improved JSON extraction regex to handle common AI formatting issues
           const jsonMatch = sarvamResponse.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) throw new Error("Sarvam AI returned an invalid format.");
+          if (!jsonMatch) {
+            console.error("Sarvam raw response:", sarvamResponse);
+            throw new Error("Sarvam AI returned an invalid format. Response must be valid JSON.");
+          }
           
-          analysisResult = JSON.parse(jsonMatch[0]);
+          try {
+            analysisResult = JSON.parse(jsonMatch[0]);
+          } catch (parseError) {
+            console.error("Sarvam parse error:", parseError.message, "on string:", jsonMatch[0]);
+            throw new Error("Sarvam AI returned malformed JSON.");
+          }
           console.log("--- SUCCESS: Sarvam AI analysis completed ---");
         } catch (sarvamError) {
           console.error("--- FAILURE: Sarvam AI failed ---", sarvamError.message);
@@ -495,9 +537,14 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
         
         const jsonMatch = openRouterResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          analysisResult = JSON.parse(jsonMatch[0]);
-          console.log("--- SUCCESS: OpenRouter analysis completed ---");
-          usedFallback = false; // Stop further fallbacks
+          try {
+            analysisResult = JSON.parse(jsonMatch[0]);
+            console.log("--- SUCCESS: OpenRouter analysis completed ---");
+            usedFallback = false; // Stop further fallbacks
+          } catch (parseError) {
+            console.error("OpenRouter parse error:", parseError.message);
+            // Don't throw here, let it fallback to Gemini
+          }
         }
       } catch (orError) {
         console.error("--- FAILURE: OpenRouter failed ---", orError.message);
