@@ -86,6 +86,12 @@ app.use(cors({
   credentials: true
 }));
 
+// Fix Cross-Origin-Opener-Policy for Google Auth Popups
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  next();
+});
+
 // Trust the first proxy (Vercel/Cloudflare/etc)
 app.set('trust proxy', 1);
 
@@ -411,26 +417,30 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
     let usedFallback = false;
 
     // PRIMARY: Try Sarvam AI first for ALL text-only ideas
-    if (!attachment && SARVAM_API_KEY) {
-      try {
-        console.log("--- PRIMARY: Attempting analysis with Sarvam AI ---");
-        const sarvamResponse = await callSarvamAI(idea, systemPrompt);
-        
-        // Extract JSON from potential Markdown formatting
-        const jsonMatch = sarvamResponse.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) {
-          throw new Error("AI returned an invalid format. Please try rephrasing your idea.");
+    if (!attachment) {
+      if (SARVAM_API_KEY) {
+        try {
+          console.log("--- PRIMARY: Attempting analysis with Sarvam AI ---");
+          const sarvamResponse = await callSarvamAI(idea, systemPrompt);
+          
+          // Extract JSON from potential Markdown formatting
+          const jsonMatch = sarvamResponse.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) {
+            throw new Error("Sarvam AI returned an invalid format.");
+          }
+          analysisResult = JSON.parse(jsonMatch[0]);
+          console.log("--- SUCCESS: Sarvam AI analysis completed ---");
+        } catch (sarvamError) {
+          console.error("--- FAILURE: Sarvam AI failed ---", sarvamError.message);
+          usedFallback = true;
         }
-        analysisResult = JSON.parse(jsonMatch[0]);
-        
-        console.log("--- SUCCESS: Sarvam AI analysis completed ---");
-      } catch (sarvamError) {
-        console.error("--- FAILURE: Sarvam AI failed ---", sarvamError.message);
+      } else {
+        console.log("--- INFO: Sarvam API Key missing, checking for Gemini fallback ---");
         usedFallback = true;
       }
     } else {
       // If there's an attachment, we must use Gemini as Sarvam is text-only
-      console.log("--- INFO: Attachment detected or Sarvam Key missing, defaulting to Gemini ---");
+      console.log("--- INFO: Attachment detected, defaulting to Gemini ---");
       usedFallback = true;
     }
 
@@ -438,6 +448,13 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
     if (usedFallback) {
       try {
         console.log("--- FALLBACK: Attempting analysis with Gemini ---");
+        
+        // Ensure Gemini key exists before trying
+        const GEMINI_API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
+        if (!GEMINI_API_KEY) {
+          throw new Error("No AI services are currently available. Please configure API keys (Sarvam or Gemini).");
+        }
+
         const parts = [];
         if (attachment) {
           parts.push({
@@ -563,6 +580,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
         }
 
         // For chat, we attempt Sarvam first if no attachments in history (simple text chat)
+        let chatUsedFallback = false;
         if (SARVAM_API_KEY) {
             try {
                 console.log("Attempting chat with Sarvam AI...");
@@ -574,18 +592,29 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
                 return res.json({ text: responseText });
             } catch (sarvamError) {
                 console.error("Sarvam Chat failed, falling back to Gemini:", sarvamError.message);
+                chatUsedFallback = true;
             }
+        } else {
+            console.log("Sarvam API Key missing for chat, defaulting to Gemini");
+            chatUsedFallback = true;
         }
 
-        const model = getGenAI().getGenerativeModel({ 
-            model: "gemini-2.0-flash-exp",
-            systemInstruction: SYSTEM_PROMPTS.CHAT_COFOUNDER
-                .replace('{{originalIdea}}', context.originalIdea)
-                .replace('{{reportSummary}}', JSON.stringify(context.report))
-        });
+        if (chatUsedFallback) {
+            const GEMINI_API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
+            if (!GEMINI_API_KEY) {
+                throw new Error("No AI services available for chat. Please configure API keys.");
+            }
 
-        const result = await model.generateContent(message);
-        res.json({ text: result.response.text() });
+            const model = getGenAI().getGenerativeModel({ 
+                model: "gemini-2.0-flash-exp",
+                systemInstruction: SYSTEM_PROMPTS.CHAT_COFOUNDER
+                    .replace('{{originalIdea}}', context.originalIdea)
+                    .replace('{{reportSummary}}', JSON.stringify(context.report))
+            });
+
+            const result = await model.generateContent(message);
+            res.json({ text: result.response.text() });
+        }
     } catch (error) {
         console.error("Chat Error:", error);
         res.status(500).json({ error: "Chat failed" });

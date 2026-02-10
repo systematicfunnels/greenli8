@@ -18,9 +18,8 @@ import { PurchaseSuccessView } from './views/PurchaseSuccessView';
 import { PrivacyView } from './views/PrivacyView';
 import { TermsView } from './views/TermsView';
 import { Footer } from './components/Footer';
-import { Modal } from './components/Modal';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { AlertCircle, History, Settings, HelpCircle, LogIn, LayoutDashboard, LogOut, User as UserIcon, ChevronDown, Menu, Loader2 } from 'lucide-react';
+import { AlertCircle, History, Settings, HelpCircle, LogIn, LayoutDashboard, LogOut, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from './components/Button';
 
 export const App: React.FC = () => {
@@ -197,8 +196,11 @@ export const App: React.FC = () => {
   const handleUpdateProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
     
-    // Batch state updates to prevent multiple re-renders
+    const oldUser = user;
+
+    // Optimistic update
     setUser(prevUser => {
+      if (!prevUser) return null;
       const updated = { ...prevUser, ...data };
       localStorage.setItem('Greenli8_user', JSON.stringify(updated));
       return updated;
@@ -208,13 +210,9 @@ export const App: React.FC = () => {
       await api.updateProfile(data);
     } catch (e) {
       console.error("Failed to sync profile update", e);
-      // Rollback state on failure
-      setUser(prevUser => {
-        const rolledBack = { ...prevUser };
-        Object.keys(data).forEach(key => delete rolledBack[key]);
-        localStorage.setItem('Greenli8_user', JSON.stringify(rolledBack));
-        return rolledBack;
-      });
+      // Rollback on failure
+      setUser(oldUser);
+      localStorage.setItem('Greenli8_user', JSON.stringify(oldUser));
     }
   };
 
