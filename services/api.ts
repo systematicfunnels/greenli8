@@ -118,10 +118,18 @@ export const api = {
 
   // --- AI ---
   analyzeIdea: async (idea: string, attachment?: { mimeType: string, data: string }): Promise<ValidationReport> => {
+    // Ensure idea is at least a minimum length or attachment exists
+    if (!idea.trim() && !attachment) {
+      throw new Error("Please provide an idea or an attachment.");
+    }
+
     const res = await fetch(`${API_URL}/analyze`, {
       method: 'POST',
       headers: getHeaders(),
-      body: JSON.stringify({ idea, attachment }),
+      body: JSON.stringify({ 
+        idea: idea.trim() || "Idea from attachment", 
+        attachment 
+      }),
     });
     
     const text = await res.text();
