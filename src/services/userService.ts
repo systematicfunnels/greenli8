@@ -76,11 +76,14 @@ export const login = async ({ email, password }: any) => {
 };
 
 export const googleLogin = async (token: string) => {
+  console.log('[Auth Service] Attempting Google userinfo fetch');
   const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
     headers: { Authorization: `Bearer ${token}` }
   });
   
   if (!userInfoRes.ok) {
+    const errorText = await userInfoRes.text();
+    console.error('[Auth Service] Google userinfo failed:', userInfoRes.status, errorText);
     const error = new Error("Invalid Google token") as any;
     error.status = 401;
     throw error;

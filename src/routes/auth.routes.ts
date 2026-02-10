@@ -28,6 +28,10 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   res.json(result);
 }));
 
+router.get('/google', (req, res) => {
+  res.json({ message: "Google Auth endpoint is working. Please use POST to authenticate.", method: req.method });
+});
+
 router.post('/google', asyncHandler(async (req: Request, res: Response) => {
   const { token } = req.body;
   if (!token) return res.status(400).json({ error: "Google token required" });

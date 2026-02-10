@@ -1,6 +1,18 @@
 import { UserProfile, ValidationReport } from "../types";
 
-const API_URL = import.meta.env.VITE_API_URL || "/api";
+const getApiUrl = () => {
+  if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (import.meta.env.PROD) {
+    // If we're on Vercel, we can use a relative path or the current origin
+    if (typeof window !== 'undefined') {
+      return `${window.location.origin}/api`;
+    }
+    return 'https://greenli8.vercel.app/api';
+  }
+  return 'http://localhost:5000/api';
+};
+
+const API_URL = getApiUrl();
 
 const getHeaders = () => {
   const token = localStorage.getItem('Greenli8_token');
