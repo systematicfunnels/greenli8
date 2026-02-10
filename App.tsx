@@ -175,12 +175,21 @@ export const App: React.FC = () => {
     setCurrentView('purchase_success');
   };
 
-  const handleLogin = async (user: UserProfile) => {
+  const handleLogin = async (userData: UserProfile) => {
     try {
-      setUser(user);
-      setCredits(user.credits);
-      setIsLifetime(user.isPro);
-      localStorage.setItem('Greenli8_user', JSON.stringify(user));
+      setUser(userData);
+      setCredits(userData.credits);
+      setIsLifetime(userData.isPro);
+      localStorage.setItem('Greenli8_user', JSON.stringify(userData));
+      
+      // Explicitly load fresh history now that token is set in api.ts
+      try {
+        const dbHistory = await api.getHistory();
+        setHistory(dbHistory);
+      } catch (e) {
+        console.error("Failed to load history after login", e);
+      }
+      
       setCurrentView('dashboard');
     } catch (e) {
       console.error("Login state update failed", e);
@@ -189,6 +198,7 @@ export const App: React.FC = () => {
 
   const handleLogout = () => {
     setUser(null);
+    api.logout(); // Use service to clear token
     localStorage.removeItem('Greenli8_user');
     setCurrentView('marketing');
   };

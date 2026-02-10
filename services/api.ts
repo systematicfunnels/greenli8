@@ -19,20 +19,21 @@ export const api = {
       body: JSON.stringify({ email, password, name }),
     });
     
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // Not JSON
+    }
+
     if (!res.ok) {
-        const text = await res.text();
-        let errorMessage = 'Signup failed';
-        try {
-            const err = JSON.parse(text);
-            errorMessage = err.error || errorMessage;
-        } catch (e) {
-            errorMessage = text.slice(0, 100) || res.statusText;
-        }
-        throw new Error(errorMessage);
+      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
     }
     
-    const data = await res.json();
-    localStorage.setItem('Greenli8_token', data.token);
+    if (data.token) {
+      localStorage.setItem('Greenli8_token', data.token);
+    }
     return data.user;
   },
 
@@ -43,20 +44,21 @@ export const api = {
       body: JSON.stringify({ email, password }),
     });
 
-    if (!res.ok) {
-        const text = await res.text();
-        let errorMessage = 'Login failed';
-        try {
-            const err = JSON.parse(text);
-            errorMessage = err.error || errorMessage;
-        } catch (e) {
-            errorMessage = text.slice(0, 100) || res.statusText;
-        }
-        throw new Error(errorMessage);
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      // Not JSON
     }
 
-    const data = await res.json();
-    localStorage.setItem('Greenli8_token', data.token);
+    if (!res.ok) {
+      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
+    }
+
+    if (data.token) {
+      localStorage.setItem('Greenli8_token', data.token);
+    }
     return data.user;
   },
 
