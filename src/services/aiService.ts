@@ -59,10 +59,10 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
   if (env.geminiKey) {
     try {
       console.log('[AI] Attempting Gemini...');
-      return await callWithTimeout(async (signal) => {
-        const { GoogleGenAI } = await import('@google/genai');
-        const ai = new GoogleGenAI({ apiKey: env.geminiKey });
+      const { GoogleGenAI } = await import('@google/genai');
+      const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
+      return await callWithTimeout(async (signal) => {
         const parts: any[] = [];
         if (attachment) {
           parts.push({
@@ -72,7 +72,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
             }
           });
         }
-        parts.push({ text: idea });
+        parts.push({ text: `Analyze this startup idea: ${idea}` });
 
         const result = await ai.models.generateContent({
           model: 'gemini-2.0-flash',
@@ -80,7 +80,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
           config: {
             systemInstruction: systemPrompt,
             responseMimeType: "application/json",
-            abortSignal: signal,
+            temperature: 0.7, // Add a bit of creativity for better analysis
             responseSchema: {
               type: Type.OBJECT,
               properties: {
