@@ -38,6 +38,11 @@ const getGenAI = () => {
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
 const SARVAM_URL = 'https://api.sarvam.ai/v1/chat/completions';
 
+// Initialize OpenRouter config
+const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const OPENROUTER_FREE_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free";
+
 const callSarvamAI = async (prompt, systemInstruction) => {
   if (!SARVAM_API_KEY) throw new Error("Sarvam API key not configured");
 
@@ -73,6 +78,47 @@ const callSarvamAI = async (prompt, systemInstruction) => {
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') throw new Error("Sarvam AI request timed out");
+    throw error;
+  }
+};
+
+const callOpenRouterAI = async (prompt, systemInstruction, model = OPENROUTER_FREE_MODEL) => {
+  if (!OPENROUTER_API_KEY) throw new Error("OpenRouter API key not configured");
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+  try {
+    const response = await fetch(OPENROUTER_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
+        'HTTP-Referer': 'https://greenli8.com', // Optional for OpenRouter rankings
+        'X-Title': 'Greenli8 AI'
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: prompt }
+        ]
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`OpenRouter Error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') throw new Error("OpenRouter request timed out");
     throw error;
   }
 };
@@ -423,11 +469,9 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
           console.log("--- PRIMARY: Attempting analysis with Sarvam AI ---");
           const sarvamResponse = await callSarvamAI(idea, systemPrompt);
           
-          // Extract JSON from potential Markdown formatting
           const jsonMatch = sarvamResponse.match(/\{[\s\S]*\}/);
-          if (!jsonMatch) {
-            throw new Error("Sarvam AI returned an invalid format.");
-          }
+          if (!jsonMatch) throw new Error("Sarvam AI returned an invalid format.");
+          
           analysisResult = JSON.parse(jsonMatch[0]);
           console.log("--- SUCCESS: Sarvam AI analysis completed ---");
         } catch (sarvamError) {
@@ -435,24 +479,40 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
           usedFallback = true;
         }
       } else {
-        console.log("--- INFO: Sarvam API Key missing, checking for Gemini fallback ---");
+        console.log("--- INFO: Sarvam API Key missing, checking for fallbacks ---");
         usedFallback = true;
       }
     } else {
-      // If there's an attachment, we must use Gemini as Sarvam is text-only
       console.log("--- INFO: Attachment detected, defaulting to Gemini ---");
       usedFallback = true;
     }
 
-    // FALLBACK: Only use Gemini if Sarvam failed or was skipped
+    // FALLBACK 1: Try OpenRouter before Gemini
+    if (usedFallback && !attachment && OPENROUTER_API_KEY) {
+      try {
+        console.log("--- FALLBACK 1: Attempting analysis with OpenRouter ---");
+        const openRouterResponse = await callOpenRouterAI(idea, systemPrompt);
+        
+        const jsonMatch = openRouterResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          analysisResult = JSON.parse(jsonMatch[0]);
+          console.log("--- SUCCESS: OpenRouter analysis completed ---");
+          usedFallback = false; // Stop further fallbacks
+        }
+      } catch (orError) {
+        console.error("--- FAILURE: OpenRouter failed ---", orError.message);
+      }
+    }
+
+    // FALLBACK 2: Finally try Gemini if everything else failed or was skipped
     if (usedFallback) {
       try {
-        console.log("--- FALLBACK: Attempting analysis with Gemini ---");
+        console.log("--- FALLBACK 2: Attempting analysis with Gemini ---");
         
         // Ensure Gemini key exists before trying
         const GEMINI_API_KEY = process.env.API_KEY || process.env.GEMINI_API_KEY;
         if (!GEMINI_API_KEY) {
-          throw new Error("No AI services are currently available. Please configure API keys (Sarvam or Gemini).");
+          throw new Error("No AI services are currently available. Please configure API keys (Sarvam, OpenRouter, or Gemini).");
         }
 
         const parts = [];
@@ -579,7 +639,7 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
             return res.status(403).json({ error: "Insufficient credits to use chat." });
         }
 
-        // For chat, we attempt Sarvam first if no attachments in history (simple text chat)
+        // For chat, we attempt Sarvam -> OpenRouter -> Gemini
         let chatUsedFallback = false;
         if (SARVAM_API_KEY) {
             try {
@@ -591,12 +651,26 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
                 const responseText = await callSarvamAI(message, systemPrompt);
                 return res.json({ text: responseText });
             } catch (sarvamError) {
-                console.error("Sarvam Chat failed, falling back to Gemini:", sarvamError.message);
+                console.error("Sarvam Chat failed, falling back:", sarvamError.message);
                 chatUsedFallback = true;
             }
         } else {
-            console.log("Sarvam API Key missing for chat, defaulting to Gemini");
             chatUsedFallback = true;
+        }
+
+        if (chatUsedFallback && OPENROUTER_API_KEY) {
+            try {
+                console.log("Attempting chat with OpenRouter...");
+                const systemPrompt = SYSTEM_PROMPTS.CHAT_COFOUNDER
+                    .replace('{{originalIdea}}', context.originalIdea)
+                    .replace('{{reportSummary}}', JSON.stringify(context.report));
+                
+                const responseText = await callOpenRouterAI(message, systemPrompt);
+                return res.json({ text: responseText });
+            } catch (orError) {
+                console.error("OpenRouter Chat failed, falling back:", orError.message);
+                chatUsedFallback = true;
+            }
         }
 
         if (chatUsedFallback) {
