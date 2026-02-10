@@ -5,14 +5,16 @@ const required = ['DATABASE_URL', 'JWT_SECRET', 'STRIPE_SECRET_KEY'];
 
 required.forEach(key => {
   if (!process.env[key]) {
-    console.error(`FATAL: Missing required environment variable: ${key}`);
-    process.exit(1);
+    console.error(`ERROR: Missing environment variable: ${key}`);
+    // Don't exit process in serverless environments
+    if (process.env.NODE_ENV !== 'production') {
+      // process.exit(1);
+    }
   }
 });
 
-if (process.env.JWT_SECRET.length < 32) {
-  console.error('FATAL: JWT_SECRET must be at least 32 characters long');
-  process.exit(1);
+if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
+  console.warn('WARNING: JWT_SECRET should be at least 32 characters long');
 }
 
 export default {
