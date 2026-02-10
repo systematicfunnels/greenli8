@@ -21,7 +21,7 @@ export const signup = async ({ email, password, name }: { email: string; passwor
       email,
       password: hashedPassword,
       name: name || email.split('@')[0],
-      credits: 3,
+      credits: 20,
       preferences: {
         emailNotifications: true,
         marketingEmails: false,
@@ -42,7 +42,7 @@ export const signup = async ({ email, password, name }: { email: string; passwor
       from: env.emailFrom,
       to: email,
       subject: "Welcome to Greenli8! 🚀",
-      html: `<h2>Welcome, ${user.name}!</h2><p>You have 3 free credits to start validating ideas.</p>`
+      html: `<h2>Welcome, ${user.name}!</h2><p>You have 20 free credits to start validating ideas.</p>`
     }).catch(e => logger.error('Email failed:', e));
   }
 
@@ -103,7 +103,7 @@ export const googleLogin = async (token: string) => {
         email,
         name: name || email.split('@')[0],
         googleId,
-        credits: 3,
+        credits: 20,
         preferences: {
           emailNotifications: true,
           marketingEmails: false,
@@ -131,7 +131,7 @@ export const googleLogin = async (token: string) => {
       from: env.emailFrom,
       to: email,
       subject: "Welcome to Greenli8! 🚀",
-      html: `<h2>Welcome, ${user.name}!</h2><p>You have 3 free credits to start validating ideas.</p>`
+      html: `<h2>Welcome, ${user.name}!</h2><p>You have 20 free credits to start validating ideas.</p>`
     }).catch(e => logger.error('Email failed:', e));
   }
 
