@@ -53,9 +53,12 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
 
   const getRemainingTimeout = () => Math.max(1000, GLOBAL_TIMEOUT - (Date.now() - startTime));
 
+  console.log(`[AI] Starting analysis. Keys present: Gemini=${!!env.geminiKey}, OpenRouter=${!!env.openRouterKey}, Sarvam=${!!env.sarvamKey}`);
+
   // 1. Try Gemini (Primary - Supports Attachments)
   if (env.geminiKey) {
     try {
+      console.log('[AI] Attempting Gemini...');
       return await callWithTimeout(async (signal) => {
         const { GoogleGenAI } = await import('@google/genai');
         const ai = new GoogleGenAI({ apiKey: env.geminiKey });
@@ -103,19 +106,26 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
           }
         });
         
+        console.log('[AI] Gemini success');
         return parseResponse(result.text || '');
       }, getRemainingTimeout());
     } catch (_e: any) {
+      console.error('[AI] Gemini failed:', _e.message);
       logger.warn(`Gemini primary failed: ${_e.message}`);
     }
   }
 
   // 2. Try OpenRouter (Reliability Fallback)
   if (env.openRouterKey) {
+    console.log('[AI] Attempting OpenRouter...');
     for (const model of OPENROUTER_MODELS) {
-      if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) break; // Stop if less than 2s left
+      if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) {
+        console.warn('[AI] OpenRouter skipped - nearly out of time');
+        break;
+      }
 
       try {
+        console.log(`[AI] Trying OpenRouter model: ${model}`);
         return await callWithTimeout(async (signal) => {
           const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
             method: 'POST',
@@ -135,10 +145,12 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
             signal
           });
           const data = await res.json() as any;
-          if (!res.ok) throw new Error(data.error?.message || 'OpenRouter error');
+          if (!res.ok) throw new Error(data.error?.message || `OpenRouter error ${res.status}`);
+          console.log(`[AI] OpenRouter model ${model} success`);
           return parseResponse(data.choices[0].message.content);
         }, getRemainingTimeout());
       } catch (_e: any) {
+        console.error(`[AI] OpenRouter model ${model} failed:`, _e.message);
         logger.warn(`OpenRouter model ${model} failed: ${_e.message || 'Unknown error'}`);
       }
     }
@@ -147,6 +159,7 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
   // 3. Try Sarvam (Final Fallback - Text only)
   if (!attachment && env.sarvamKey) {
     try {
+      console.log('[AI] Attempting Sarvam...');
       return await callWithTimeout(async (signal) => {
         const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
           method: 'POST',
@@ -164,9 +177,12 @@ export const analyzeIdea = async (idea: string, attachment: { mimeType: string; 
           signal
         });
         const data = await res.json() as any;
+        if (!res.ok) throw new Error(`Sarvam error ${res.status}`);
+        console.log('[AI] Sarvam success');
         return parseResponse(data.choices[0].message.content);
       }, getRemainingTimeout());
     } catch (_e: any) {
+      console.error('[AI] Sarvam failed:', _e.message);
       logger.warn(`Sarvam AI failed: ${_e.message || 'Unknown error'}`);
     }
   }

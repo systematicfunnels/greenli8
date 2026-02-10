@@ -3,7 +3,7 @@ import { z } from 'zod';
 import auth, { AuthRequest } from '../middleware/auth.js';
 import prisma from '../config/prisma.js';
 import { analyzeIdea, chatWithAI } from '../services/aiService.js';
-import { useCredit } from '../services/creditService.js';
+import { useCredit, addCredits } from '../services/creditService.js';
 import asyncHandler from '../utils/asyncHandler.js';
 
 const router = express.Router();
@@ -21,26 +21,45 @@ router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Respons
   
   if (!req.user?.email) return res.status(401).json({ error: "User not authenticated" });
 
-  // 1. Lock credits
-  const user = await useCredit(req.user.email);
+  let creditDeducted = false;
+  let user;
 
-  // 2. Run AI Analysis
-  const result = await analyzeIdea(idea, attachment as any);
+  try {
+    // 1. Deduct credit first (atomic)
+    user = await useCredit(req.user.email);
+    creditDeducted = true;
 
-  // 3. Save report
-  await prisma.report.create({
-    data: {
-      userId: user.id,
-      originalIdea: idea,
-      summaryVerdict: result.summaryVerdict,
-      viabilityScore: result.viabilityScore,
-      oneLineTakeaway: result.oneLineTakeaway || '',
-      marketReality: result.marketReality || '',
-      fullReportData: result
+    // 2. Run AI Analysis
+    const result = await analyzeIdea(idea, attachment as any);
+
+    // 3. Save report
+    await prisma.report.create({
+      data: {
+        userId: user.id,
+        originalIdea: idea,
+        summaryVerdict: result.summaryVerdict,
+        viabilityScore: result.viabilityScore,
+        oneLineTakeaway: result.oneLineTakeaway || '',
+        marketReality: result.marketReality || '',
+        fullReportData: result
+      }
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    // 4. Refund credit if deduction happened but AI/Save failed
+    if (creditDeducted && req.user?.email) {
+      try {
+        await addCredits(req.user.email, 1);
+        console.log(`[Credits] Refunded 1 credit to ${req.user.email} due to failure`);
+      } catch (refundError) {
+        console.error(`[Credits] FAILED TO REFUND ${req.user.email}:`, refundError);
+      }
     }
-  });
-
-  res.json(result);
+    
+    // Pass error to errorHandler middleware
+    throw error;
+  }
 }));
 
 router.post('/chat', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
