@@ -20,8 +20,15 @@ export const api = {
     });
     
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Signup failed');
+        let errorMessage = 'Signup failed';
+        try {
+            const err = await res.json();
+            errorMessage = err.error || errorMessage;
+        } catch (e) {
+            const text = await res.text();
+            errorMessage = text.slice(0, 100) || res.statusText;
+        }
+        throw new Error(errorMessage);
     }
     
     const data = await res.json();
@@ -37,8 +44,15 @@ export const api = {
     });
 
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Login failed');
+        let errorMessage = 'Login failed';
+        try {
+            const err = await res.json();
+            errorMessage = err.error || errorMessage;
+        } catch (e) {
+            const text = await res.text();
+            errorMessage = text.slice(0, 100) || res.statusText;
+        }
+        throw new Error(errorMessage);
     }
 
     const data = await res.json();
@@ -54,8 +68,15 @@ export const api = {
     });
 
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Google Login failed');
+        let errorMessage = 'Google Login failed';
+        try {
+            const err = await res.json();
+            errorMessage = err.error || errorMessage;
+        } catch (e) {
+            const text = await res.text();
+            errorMessage = text.slice(0, 100) || res.statusText;
+        }
+        throw new Error(errorMessage);
     }
 
     const data = await res.json();
@@ -83,8 +104,16 @@ export const api = {
       body: JSON.stringify({ idea, attachment }),
     });
     if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Analysis failed');
+        let errorMessage = 'Analysis failed';
+        try {
+            const err = await res.json();
+            errorMessage = err.error || errorMessage;
+        } catch (e) {
+            // Fallback for non-JSON errors
+            const text = await res.text();
+            errorMessage = text.slice(0, 100) || res.statusText;
+        }
+        throw new Error(errorMessage);
     }
     return res.json();
   },
@@ -122,9 +151,19 @@ export const api = {
   // --- Reports ---
   getHistory: async (): Promise<ValidationReport[]> => {
     const res = await fetch(`${API_URL}/reports`, {
-      headers: getHeaders()
+      headers: getHeaders(),
     });
-    if (!res.ok) throw new Error('Failed to fetch history');
+    if (!res.ok) {
+        let errorMessage = 'Failed to fetch history';
+        try {
+            const err = await res.json();
+            errorMessage = err.error || errorMessage;
+        } catch (e) {
+            const text = await res.text();
+            errorMessage = text.slice(0, 100) || res.statusText;
+        }
+        throw new Error(errorMessage);
+    }
     return res.json();
   },
 

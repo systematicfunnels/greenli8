@@ -38,10 +38,21 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit }) => {
   // Cleanup audio URL on unmount
   useEffect(() => {
     return () => {
-      if (audioUrl) URL.revokeObjectURL(audioUrl);
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      // Clean up all audio resources
+      if (audioUrl) {
+        URL.revokeObjectURL(audioUrl);
+        setAudioUrl(null);
+      }
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
+      // Stop any active media streams
+      if (mediaRecorderRef.current?.stream) {
+        mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [audioUrl]);
+  }, []); // Remove audioUrl dependency to run on unmount only
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);

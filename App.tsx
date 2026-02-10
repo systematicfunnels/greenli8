@@ -19,6 +19,7 @@ import { PrivacyView } from './views/PrivacyView';
 import { TermsView } from './views/TermsView';
 import { Footer } from './components/Footer';
 import { Modal } from './components/Modal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { AlertCircle, History, Settings, HelpCircle, LogIn, LayoutDashboard, LogOut, User as UserIcon, ChevronDown, Menu, Loader2 } from 'lucide-react';
 import { Button } from './components/Button';
 
@@ -196,14 +197,24 @@ export const App: React.FC = () => {
   const handleUpdateProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
     
-    const updated = { ...user, ...data };
-    setUser(updated);
-    localStorage.setItem('Greenli8_user', JSON.stringify(updated));
-
+    // Batch state updates to prevent multiple re-renders
+    setUser(prevUser => {
+      const updated = { ...prevUser, ...data };
+      localStorage.setItem('Greenli8_user', JSON.stringify(updated));
+      return updated;
+    });
+    
     try {
-        await api.updateProfile(data);
+      await api.updateProfile(data);
     } catch (e) {
-        console.error("Failed to sync profile update", e);
+      console.error("Failed to sync profile update", e);
+      // Rollback state on failure
+      setUser(prevUser => {
+        const rolledBack = { ...prevUser };
+        Object.keys(data).forEach(key => delete rolledBack[key]);
+        localStorage.setItem('Greenli8_user', JSON.stringify(rolledBack));
+        return rolledBack;
+      });
     }
   };
 
@@ -353,7 +364,8 @@ export const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen font-sans text-slate-900 flex flex-col">
+    <ErrorBoundary>
+      <div className="min-h-screen font-sans text-slate-900 flex flex-col">
       {currentView !== 'auth' && currentView !== 'chat' && (
         <nav className="border-b border-slate-200 bg-white/80 backdrop-blur-md sticky top-0 z-50">
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
@@ -544,5 +556,6 @@ export const App: React.FC = () => {
         />
       )}
     </div>
+    </ErrorBoundary>
   );
 };

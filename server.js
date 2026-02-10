@@ -18,8 +18,8 @@ const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789');
 const app = express();
 const PORT = process.env.PORT || 4242;
 const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-    console.error("FATAL: JWT_SECRET is not defined in environment variables.");
+if (!JWT_SECRET || JWT_SECRET.length < 32) {
+    console.error("FATAL: JWT_SECRET is not defined or too weak. Use a strong secret (32+ chars).");
     process.exit(1);
 }
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Greenli8 AI <onboarding@resend.dev>';
@@ -38,28 +38,40 @@ const SARVAM_URL = 'https://api.sarvam.ai/v1/chat/completions';
 const callSarvamAI = async (prompt, systemInstruction) => {
   if (!SARVAM_API_KEY) throw new Error("Sarvam API key not configured");
 
-  const response = await fetch(SARVAM_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'api-subscription-key': SARVAM_API_KEY
-    },
-    body: JSON.stringify({
-      model: "sarvam-m",
-      messages: [
-        { role: "system", content: systemInstruction },
-        { role: "user", content: prompt }
-      ]
-    })
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`Sarvam API Error: ${errorData.error?.message || response.statusText}`);
+  try {
+    const response = await fetch(SARVAM_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-subscription-key': SARVAM_API_KEY
+      },
+      body: JSON.stringify({
+        model: "sarvam-m",
+        messages: [
+          { role: "system", content: systemInstruction },
+          { role: "user", content: prompt }
+        ]
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(`Sarvam API Error: ${errorData.error?.message || response.statusText}`);
+    }
+
+    const data = await response.json();
+    return data.choices[0].message.content;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') throw new Error("Sarvam AI request timed out");
+    throw error;
   }
-
-  const data = await response.json();
-  return data.choices[0].message.content;
 };
 
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
@@ -81,9 +93,12 @@ const limiter = rateLimit({
   legacyHeaders: false,
   message: "Too many requests, please try again later.",
   validate: {
-    xForwardedForHeader: false,
+    xForwardedForHeader: true, // Enable proxy validation
     forwardedHeader: false
-  }
+  },
+  // Add additional security
+  skipSuccessfulRequests: false,
+  skipFailedRequests: false
 });
 
 // Apply rate limiting to all API routes
@@ -171,10 +186,10 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-  if (token == null) return res.sendStatus(401);
+  if (token == null) return res.status(401).json({ error: "Unauthorized" });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) return res.sendStatus(403);
+    if (err) return res.status(403).json({ error: "Invalid or expired token" });
     req.user = user;
     next();
   });
@@ -487,6 +502,8 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
     const updatedUser = await prisma.$transaction(async (tx) => {
       const u = await tx.user.findUnique({ where: { email } });
       
+      if (!u) throw new Error("User account not found during transaction");
+
       if (!u.isPro && u.credits <= 0) {
           throw new Error("Insufficient credits");
       }
@@ -589,17 +606,40 @@ app.get('/api/users/me', authenticateToken, async (req, res) => {
   }
 });
 
+// ADD validation function
+const validateUserProfile = (data) => {
+  const errors = [];
+  if (data.name && (data.name.length < 2 || data.name.length > 50)) {
+    errors.push("Name must be 2-50 characters");
+  }
+  if (data.preferences) {
+    if (typeof data.preferences.emailNotifications !== 'boolean') {
+      errors.push("emailNotifications must be boolean");
+    }
+    if (data.preferences.theme && !['light', 'dark'].includes(data.preferences.theme)) {
+      errors.push("theme must be 'light' or 'dark'");
+    }
+  }
+  return errors;
+};
+
 app.put('/api/users/profile', authenticateToken, async (req, res) => {
   const email = req.user.email;
   const data = req.body;
   
-  // Security: Block sensitive field updates
+  // Security: Block sensitive field updates BEFORE database operation
   delete data.id;
   delete data.email;
   delete data.password;
   delete data.createdAt;
   delete data.credits; 
   delete data.isPro;
+  
+  // Input validation
+  const validationErrors = validateUserProfile(data);
+  if (validationErrors.length > 0) {
+    return res.status(400).json({ error: validationErrors.join(', ') });
+  }
 
   try {
     const user = await prisma.user.update({
@@ -701,6 +741,15 @@ app.get('/api/verify-payment', async (req, res) => {
     console.error("Verify Error:", error.message);
     res.status(500).json({ error: 'Verification failed' });
   }
+});
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error("GLOBAL ERROR:", err);
+  res.status(500).json({ 
+    error: "A server error occurred",
+    details: process.env.NODE_ENV === 'development' ? err.message : undefined
+  });
 });
 
 // Only start the server if we're not in a serverless environment (Vercel)
