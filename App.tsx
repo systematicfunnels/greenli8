@@ -974,7 +974,7 @@ export const App: React.FC = () => {
 
         {currentView === 'input' && (
 
-          <InputView onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')} onSubmit={handleSubmitIdea} />
+          <InputView onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')} onSubmit={handleSubmitIdea} credits={credits} isLifetime={isLifetime} />
 
         )}
 

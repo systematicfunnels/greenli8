@@ -5,9 +5,11 @@ import { ArrowLeft, Sparkles, Upload, FileText, X, AlertCircle, Mic, Square, Tra
 interface InputViewProps {
   onBack: () => void;
   onSubmit: (idea: string, attachment?: { mimeType: string, data: string }) => void;
+  credits?: number;
+  isLifetime?: boolean;
 }
 
-export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit }) => {
+export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits, isLifetime }) => {
   const [idea, setIdea] = useState("");
   const [attachment, setAttachment] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -176,6 +178,12 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit }) => {
 
   const handleSubmit = () => {
     if (canSubmit) {
+      // Check for insufficient credits
+      if (!isLifetime && credits !== undefined && credits <= 0) {
+        setError("No credits remaining. Please upgrade to continue analyzing ideas.");
+        return;
+      }
+      
       if (attachment) {
           onSubmit(idea, { mimeType: attachment.mimeType, data: attachment.data });
       } else {
@@ -240,8 +248,23 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit }) => {
       </button>
 
       <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
-        <h2 className="text-2xl font-bold text-slate-900 mb-2">Pitch your idea</h2>
-        <p className="text-slate-500 mb-6">Describe your product, record a voice note, or upload a pitch deck or audio file.</p>
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <h2 className="text-2xl font-bold text-slate-900 mb-2">Pitch your idea</h2>
+            <p className="text-slate-500">Describe your product, record a voice note, or upload a pitch deck or audio file.</p>
+          </div>
+          {credits !== undefined && (
+            <div className="text-right">
+              <p className="text-sm text-slate-500">Credits</p>
+              <p className={`font-semibold text-lg ${!isLifetime && credits <= 1 ? 'text-rose-600' : 'text-slate-900'}`}>
+                {isLifetime ? '∞' : credits}
+              </p>
+              {!isLifetime && credits <= 1 && (
+                <p className="text-xs text-rose-500 mt-1">Low credits - upgrade soon!</p>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Text Area */}
         <textarea 
