@@ -47,14 +47,18 @@ router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Respons
 
     res.json(result);
   } catch (error: any) {
+    console.error(`[Analysis] AI failed for user ${req.user?.email}:`, error.message);
+    
     // 4. Refund credit if deduction happened but AI/Save failed
     if (creditDeducted && req.user?.email) {
       try {
         await addCredits(req.user.email, 1);
-        console.log(`[Credits] Refunded 1 credit to ${req.user.email} due to failure`);
+        console.log(`[Credits] ✅ Refunded 1 credit to ${req.user.email} due to AI failure`);
       } catch (refundError) {
-        console.error(`[Credits] FAILED TO REFUND ${req.user.email}:`, refundError);
+        console.error(`[Credits] ❌ FAILED TO REFUND ${req.user.email}:`, refundError);
       }
+    } else {
+      console.log(`[Credits] No credit to refund. Deducted: ${creditDeducted}, Email: ${req.user?.email}`);
     }
     
     // Pass error to errorHandler middleware

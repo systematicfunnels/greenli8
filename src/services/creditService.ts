@@ -29,7 +29,7 @@ export const useCredit = async (email: string) => {
         where: { id: user.id },
         data: { credits: { decrement: 1 } }
       });
-      logger.info(`Credit used by ${email}. Remaining: ${updatedUser.credits}`);
+      logger.info(`[Credits] Deducted 1 credit from ${email}. Remaining: ${updatedUser.credits}`);
       return updatedUser;
     }
 
@@ -42,8 +42,11 @@ export const useCredit = async (email: string) => {
  * Adds credits to a user's account.
  */
 export const addCredits = async (email: string, amount: number) => {
-  return await prisma.user.update({
+  const result = await prisma.user.update({
     where: { email },
     data: { credits: { increment: amount } }
   });
+  
+  logger.info(`[Credits] Added ${amount} credits to ${email}. New balance: ${result.credits}`);
+  return result;
 };
