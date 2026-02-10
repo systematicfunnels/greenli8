@@ -44,6 +44,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [_passwordResetSent, _setPasswordResetSent] = useState(false);
+  const [isAddModelModalOpen, setIsAddModelModalOpen] = useState(false);
+
+  // Add Model Form State
+  const [newProvider, setNewProvider] = useState('');
+  const [newModel, setNewModel] = useState('');
+  const [newApiKey, setNewApiKey] = useState('');
   
   // Delete Modal State
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
@@ -170,6 +176,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       return n ? n.split(' ').map(p => p[0]).join('').substring(0, 2).toUpperCase() : 'U';
   };
 
+  const handleAddModel = () => {
+    if (!newProvider || !newModel || !newApiKey) {
+      alert("Please fill all required fields (*)");
+      return;
+    }
+
+    const customModel = {
+      provider: newProvider,
+      model: newModel,
+      apiKey: newApiKey,
+      id: Date.now().toString()
+    };
+
+    const existingModels = JSON.parse(localStorage.getItem('greenli8_custom_models') || '[]');
+    existingModels.push(customModel);
+    localStorage.setItem('greenli8_custom_models', JSON.stringify(existingModels));
+
+    // Reset and close
+    setNewProvider('');
+    setNewModel('');
+    setNewApiKey('');
+    setIsAddModelModalOpen(false);
+    alert("Model added successfully!");
+  };
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-8 animate-fade-in">
       <div className="flex items-center justify-between mb-8">
@@ -294,15 +325,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     Add your own AI provider API keys for better reliability and control. Your keys are stored securely and used only for your requests.
                  </p>
                  
-                 <Button 
-                    onClick={onNavigateToApiKeys}
-                    className="w-full gap-2"
-                 >
-                    <Key size={16} />
-                    Manage API Keys
-                 </Button>
+                 <div className="flex gap-2">
+                    <Button 
+                       onClick={onNavigateToApiKeys}
+                       className="flex-1 gap-2"
+                    >
+                       <Key size={16} />
+                       Manage API Keys
+                    </Button>
+                    <Button 
+                       variant="outline"
+                       onClick={() => setIsAddModelModalOpen(true)}
+                       className="gap-2"
+                    >
+                       Add Model
+                    </Button>
+                 </div>
                  
-                 <div className="text-xs text-slate-500 space-y-1">
+                 <div className="text-xs text-slate-500 space-y-1 pt-2">
                     <p>• Supports Google Gemini, OpenRouter, and Sarvam AI</p>
                     <p>• Custom keys override environment keys</p>
                     <p>• Keys are encrypted and stored securely</p>
@@ -311,6 +351,70 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
            </Card>
         )}
       </div>
+
+      <Modal isOpen={isAddModelModalOpen} onClose={() => setIsAddModelModalOpen(false)} title="Add Model">
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold mb-1 text-slate-700">* Provider</label>
+            <select 
+              value={newProvider}
+              onChange={(e) => setNewProvider(e.target.value)}
+              className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none bg-white text-sm"
+            >
+              <option value="">Choose Model Provider</option>
+              <option value="gemini">Google Gemini</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="sarvam">Sarvam AI</option>
+              <option value="custom">Custom</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1 text-slate-700">* Model</label>
+            <select 
+              value={newModel}
+              onChange={(e) => setNewModel(e.target.value)}
+              className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none bg-white text-sm"
+            >
+              <option value="">Choose Model</option>
+              {newProvider === 'gemini' && (
+                <>
+                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+                </>
+              )}
+              {newProvider === 'openrouter' && (
+                <>
+                  <option value="openrouter/auto">OpenRouter Auto</option>
+                  <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (via OR)</option>
+                  <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (via OR)</option>
+                </>
+              )}
+              {newProvider === 'sarvam' && (
+                <option value="sarvam-m">Sarvam M</option>
+              )}
+              {newProvider === 'custom' && (
+                <option value="custom-model">Custom Model</option>
+              )}
+              {!newProvider && <option value="" disabled>Select a provider first</option>}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-semibold mb-1 text-slate-700">* API Key</label>
+            <input 
+              type="password" 
+              value={newApiKey}
+              onChange={(e) => setNewApiKey(e.target.value)}
+              className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none text-sm" 
+              placeholder="Fill API Key here" 
+            />
+          </div>
+          <div className="pt-2">
+            <Button fullWidth onClick={handleAddModel} className="bg-slate-900 text-white py-3">
+              Add Model
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} title="Delete Account?">
           <p className="text-slate-600 mb-4">This action is permanent. Type <strong>delete my account</strong> to confirm.</p>

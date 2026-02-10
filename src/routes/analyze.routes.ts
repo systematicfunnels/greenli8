@@ -13,11 +13,16 @@ const AnalysisSchema = z.object({
   attachment: z.object({
     mimeType: z.string(),
     data: z.string()
+  }).optional(),
+  customApiKeys: z.object({
+    gemini: z.string().optional(),
+    openRouter: z.string().optional(),
+    sarvam: z.string().optional()
   }).optional()
 });
 
 router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Response) => {
-  const { idea, attachment } = AnalysisSchema.parse(req.body);
+  const { idea, attachment, customApiKeys: bodyCustomKeys } = AnalysisSchema.parse(req.body);
   
   if (!req.user?.email) return res.status(401).json({ error: "User not authenticated" });
 
@@ -29,11 +34,15 @@ router.post('/analyze', auth, asyncHandler(async (req: AuthRequest, res: Respons
     user = await useCredit(req.user.email);
     creditDeducted = true;
 
-    // 2. Get user's custom API keys if available
-    const customApiKeys = (user.preferences as any)?.customApiKeys;
+    // 2. Get user's custom API keys from profile OR request body (priority to request body)
+    const profileCustomKeys = (user.preferences as any)?.customApiKeys;
+    const effectiveCustomKeys = {
+      ...profileCustomKeys,
+      ...bodyCustomKeys
+    };
 
     // 3. Run AI Analysis with custom keys
-    const result = await analyzeIdea(idea, attachment as any, customApiKeys);
+    const result = await analyzeIdea(idea, attachment as any, effectiveCustomKeys);
 
     // 4. Save report
     await prisma.report.create({

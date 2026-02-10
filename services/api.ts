@@ -135,12 +135,26 @@ export const api = {
       throw new Error("Please provide an idea or an attachment.");
     }
 
+    // Check for custom keys in localStorage
+    const customModels = JSON.parse(localStorage.getItem('greenli8_custom_models') || '[]');
+    let customApiKeys: any = undefined;
+    
+    if (customModels.length > 0) {
+      customApiKeys = {};
+      customModels.forEach((m: any) => {
+        if (m.provider === 'gemini') customApiKeys.gemini = m.apiKey;
+        if (m.provider === 'openrouter') customApiKeys.openRouter = m.apiKey;
+        if (m.provider === 'sarvam') customApiKeys.sarvam = m.apiKey;
+      });
+    }
+
     const res = await fetch(`${API_URL}/analyze`, {
       method: 'POST',
       headers: getHeaders(),
       body: JSON.stringify({ 
         idea: idea.trim() || "Idea from attachment", 
-        attachment 
+        attachment,
+        customApiKeys // Pass custom keys to backend
       }),
     });
     
