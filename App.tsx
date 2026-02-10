@@ -267,12 +267,10 @@ export const App: React.FC = () => {
       setHistory([finalReport, ...history]);
       
       if (user) {
-         // Update local credits immediately to reflect server deduction
-         if (!isLifetime) {
-             const newCredits = credits - 1;
+         // Update local credits from server response
+         if (result.remainingCredits !== undefined) {
+             const newCredits = result.remainingCredits === 'unlimited' ? credits : result.remainingCredits;
              setCredits(newCredits);
-             // We update the user object locally, but we don't need to call updateProfile 
-             // because the server already deducted it.
              const updatedUser = { ...user, credits: newCredits };
              setUser(updatedUser);
              localStorage.setItem('Greenli8_user', JSON.stringify(updatedUser));

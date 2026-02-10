@@ -34,6 +34,7 @@ export interface ValidationReport {
   whyPeoplePay: string;
   viabilityScore: number; // 0-100
   nextSteps: string[];
+  remainingCredits?: number | 'unlimited';
 }
 
 export interface ChatMessage {

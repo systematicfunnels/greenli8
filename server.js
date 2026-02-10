@@ -16,15 +16,23 @@ const prisma = new PrismaClient();
 const resend = new Resend(process.env.RESEND_API_KEY || 're_123456789');
 const app = express();
 const PORT = process.env.PORT || 4242;
-const JWT_SECRET = process.env.JWT_SECRET || 'super-secret-key-change-this';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+    console.error("FATAL: JWT_SECRET is not defined in environment variables.");
+    process.exit(1);
+}
 const EMAIL_FROM = process.env.EMAIL_FROM || 'Greenli8 AI <onboarding@resend.dev>';
 
 // Initialize Gemini on Backend
-const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY || 'dummy_api_key' });
+if (!process.env.API_KEY) {
+    console.error("FATAL: API_KEY (Gemini) is not defined.");
+    process.exit(1);
+}
+const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 // Initialize Sarvam AI config
 const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
-const SARVAM_URL = 'https://api.sarvam.ai/chat/completions';
+const SARVAM_URL = 'https://api.sarvam.ai/v1/chat/completions';
 
 const callSarvamAI = async (prompt, systemInstruction) => {
   if (!SARVAM_API_KEY) throw new Error("Sarvam API key not configured");
@@ -128,7 +136,32 @@ app.post('/api/webhook', express.raw({type: 'application/json'}), async (request
   response.json({received: true});
 });
 
-app.use(express.json({ limit: '50mb' })); 
+app.use(express.json({ limit: '10mb' })); 
+
+// ---------------------------------------------------------
+// Utilities
+// ---------------------------------------------------------
+const sendWelcomeEmail = async (email, name) => {
+    if (!process.env.RESEND_API_KEY) return;
+    try {
+        await resend.emails.send({
+            from: EMAIL_FROM,
+            to: email,
+            subject: "Welcome to Greenli8! 🚀",
+            html: `
+              <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
+                <h2 style="color: #0f172a;">Welcome to Greenli8!</h2>
+                <p>Thanks for signing up, ${name || 'there'}. You've taken the first step towards validating your startup ideas.</p>
+                <p>You have <strong>3 free validation credits</strong> to get started.</p>
+                <br/>
+                <p style="color: #64748b; font-size: 14px;">Cheers,<br/>The Greenli8 Team</p>
+              </div>
+            `
+        });
+    } catch (e) {
+        console.error("Failed to send welcome email:", e);
+    }
+};
 
 // ---------------------------------------------------------
 // Middleware
@@ -259,23 +292,8 @@ app.post('/api/auth/google', async (req, res) => {
 
     const jwtToken = jwt.sign({ email: user.email, id: user.id }, JWT_SECRET, { expiresIn: '7d' });
     
-    if (isNewUser && process.env.RESEND_API_KEY) {
-        try {
-            await resend.emails.send({
-                from: EMAIL_FROM,
-                to: email,
-                subject: "Welcome to Greenli8! 🚀",
-                html: `
-                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                    <h2 style="color: #0f172a;">Welcome to Greenli8!</h2>
-                    <p>Thanks for signing up. You've taken the first step towards validating your startup ideas.</p>
-                    <p>You have <strong>3 free validation credits</strong> to get started.</p>
-                    <br/>
-                    <p style="color: #64748b; font-size: 14px;">Cheers,<br/>The Greenli8 Team</p>
-                  </div>
-                `
-            });
-        } catch (e) { console.error("Failed to send welcome email:", e); }
+    if (isNewUser) {
+        await sendWelcomeEmail(email, name);
     }
 
     const { password: _, ...userWithoutPassword } = user;
@@ -316,24 +334,7 @@ app.post('/api/auth/signup', async (req, res) => {
 
     const token = jwt.sign({ email: user.email, id: user.id }, JWT_SECRET, { expiresIn: '7d' });
     
-    if (process.env.RESEND_API_KEY) {
-        try {
-            await resend.emails.send({
-                from: EMAIL_FROM,
-                to: email,
-                subject: "Welcome to Greenli8! 🚀",
-                html: `
-                  <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; color: #333;">
-                    <h2 style="color: #0f172a;">Welcome to Greenli8!</h2>
-                    <p>Thanks for signing up. You've taken the first step towards validating your startup ideas.</p>
-                    <p>You have <strong>3 free validation credits</strong> to get started.</p>
-                    <br/>
-                    <p style="color: #64748b; font-size: 14px;">Cheers,<br/>The Greenli8 Team</p>
-                  </div>
-                `
-            });
-        } catch (e) { console.error("Failed to send welcome email:", e); }
-    }
+    await sendWelcomeEmail(email, name);
 
     // Don't return password
     const { password: _, ...userWithoutPassword } = user;
@@ -381,101 +382,114 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
   const email = req.user.email; // From Token
 
   try {
-    // 1. SECURITY CHECK: Verify Credits
+    // 1. Initial existence check (moved credit check into transaction)
     const user = await prisma.user.findUnique({ where: { email } });
-    
     if (!user) return res.status(404).json({ error: "User account not found." });
-
-    if (!user.isPro && user.credits <= 0) {
-      return res.status(403).json({ error: "Insufficient credits. Please upgrade or purchase more." });
-    }
 
     // 2. Perform Analysis
     const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
     let analysisResult;
     let usedFallback = false;
 
-    // Try Sarvam AI first if it's a text-only idea (no attachment)
+    // PRIMARY: Try Sarvam AI first for ALL text-only ideas
     if (!attachment && SARVAM_API_KEY) {
       try {
-        console.log("Attempting analysis with Sarvam AI...");
+        console.log("--- PRIMARY: Attempting analysis with Sarvam AI ---");
         const sarvamResponse = await callSarvamAI(idea, systemPrompt);
-        // Ensure we only extract the JSON part if there's any surrounding text
+        
+        // Extract JSON from potential Markdown formatting
         const jsonMatch = sarvamResponse.match(/\{[\s\S]*\}/);
-        analysisResult = JSON.parse(jsonMatch ? jsonMatch[0] : sarvamResponse);
-        console.log("Sarvam AI analysis successful.");
+        const jsonStr = jsonMatch ? jsonMatch[0] : sarvamResponse;
+        analysisResult = JSON.parse(jsonStr);
+        
+        console.log("--- SUCCESS: Sarvam AI analysis completed ---");
       } catch (sarvamError) {
-        console.error("Sarvam AI failed, falling back to Gemini:", sarvamError.message);
+        console.error("--- FAILURE: Sarvam AI failed ---", sarvamError.message);
         usedFallback = true;
       }
     } else {
+      // If there's an attachment, we must use Gemini as Sarvam is text-only
+      console.log("--- INFO: Attachment detected or Sarvam Key missing, defaulting to Gemini ---");
       usedFallback = true;
     }
 
-    // Fallback to Gemini if Sarvam was skipped or failed
+    // FALLBACK: Only use Gemini if Sarvam failed or was skipped
     if (usedFallback) {
-      const parts = [];
-      if (attachment) {
-        parts.push({
-          inlineData: {
-            mimeType: attachment.mimeType,
-            data: attachment.data
+      try {
+        console.log("--- FALLBACK: Attempting analysis with Gemini ---");
+        const parts = [];
+        if (attachment) {
+          parts.push({
+            inlineData: {
+              mimeType: attachment.mimeType,
+              data: attachment.data
+            }
+          });
+        }
+        if (idea) parts.push({ text: idea });
+
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+
+        const response = await model.generateContent({
+          contents: [{ role: 'user', parts }],
+          generationConfig: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
+                oneLineTakeaway: { type: Type.STRING },
+                marketReality: { type: Type.STRING },
+                pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+                cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+                competitors: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      name: { type: Type.STRING },
+                      differentiation: { type: Type.STRING }
+                    }
+                  }
+                },
+                monetizationStrategies: { type: Type.ARRAY, items: { type: Type.STRING } },
+                whyPeoplePay: { type: Type.STRING },
+                viabilityScore: { type: Type.INTEGER },
+                nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+              }
+            },
+            systemInstruction: systemPrompt
           }
         });
-      }
-      if (idea) parts.push({ text: idea });
 
-      const modelName = attachment ? 'gemini-2.0-flash' : 'gemini-2.0-flash';
-
-      const response = await genAI.models.generateContent({
-        model: modelName,
-        contents: { parts },
-        config: {
-          systemInstruction: systemPrompt,
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
-              oneLineTakeaway: { type: Type.STRING },
-              marketReality: { type: Type.STRING },
-              pros: { type: Type.ARRAY, items: { type: Type.STRING } },
-              cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-              competitors: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING },
-                    differentiation: { type: Type.STRING }
-                  }
-                }
-              },
-              monetizationStrategies: { type: Type.ARRAY, items: { type: Type.STRING } },
-              whyPeoplePay: { type: Type.STRING },
-              viabilityScore: { type: Type.INTEGER },
-              nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
-            }
-          }
+        analysisResult = JSON.parse(response.response.text());
+        console.log("--- SUCCESS: Gemini fallback analysis completed ---");
+      } catch (geminiError) {
+        console.error("--- CRITICAL: Gemini fallback also failed ---", geminiError.message);
+        
+        // Specific handling for Gemini Quota errors
+        if (geminiError.message?.includes('429') || geminiError.status === 429 || geminiError.message?.includes('RESOURCE_EXHAUSTED')) {
+          throw new Error("AI services are currently over capacity. Please try again in a few minutes.");
         }
-      });
-
-      analysisResult = JSON.parse(response.text());
+        throw geminiError;
+      }
     }
 
     // 3. TRANSACTION: Deduct Credit & Save Report
-    await prisma.$transaction(async (tx) => {
+    const updatedUser = await prisma.$transaction(async (tx) => {
       const u = await tx.user.findUnique({ where: { email } });
       
       if (!u.isPro && u.credits <= 0) {
           throw new Error("Insufficient credits");
       }
 
+      let finalCredits = u.credits;
       if (!u.isPro) {
-        await tx.user.update({
+        const userUpdate = await tx.user.update({
           where: { email },
           data: { credits: { decrement: 1 } }
         });
+        finalCredits = userUpdate.credits;
       }
 
       await tx.report.create({
@@ -489,9 +503,14 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
               fullReportData: analysisResult
           }
       });
+
+      return { isPro: u.isPro, credits: finalCredits };
     });
 
-    res.json(analysisResult);
+    res.json({ 
+        ...analysisResult, 
+        remainingCredits: updatedUser.isPro ? 'unlimited' : updatedUser.credits 
+    });
 
   } catch (error) {
     console.error("Gemini/DB Error:", error);
@@ -505,8 +524,16 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
 
 app.post('/api/chat', authenticateToken, async (req, res) => {
     const { message, context } = req.body;
+    const email = req.user.email;
     
     try {
+        const user = await prisma.user.findUnique({ where: { email } });
+        if (!user) return res.status(404).json({ error: "User not found" });
+
+        if (!user.isPro && user.credits <= 0) {
+            return res.status(403).json({ error: "Insufficient credits to use chat." });
+        }
+
         // For chat, we attempt Sarvam first if no attachments in history (simple text chat)
         if (SARVAM_API_KEY) {
             try {
