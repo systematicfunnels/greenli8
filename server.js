@@ -22,6 +22,37 @@ const EMAIL_FROM = process.env.EMAIL_FROM || 'Greenli8 AI <onboarding@resend.dev
 // Initialize Gemini on Backend
 const genAI = new GoogleGenAI({ apiKey: process.env.API_KEY || 'dummy_api_key' });
 
+// Initialize Sarvam AI config
+const SARVAM_API_KEY = process.env.SARVAM_API_KEY;
+const SARVAM_URL = 'https://api.sarvam.ai/chat/completions';
+
+const callSarvamAI = async (prompt, systemInstruction) => {
+  if (!SARVAM_API_KEY) throw new Error("Sarvam API key not configured");
+
+  const response = await fetch(SARVAM_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'api-subscription-key': SARVAM_API_KEY
+    },
+    body: JSON.stringify({
+      model: "sarvam-m",
+      messages: [
+        { role: "system", content: systemInstruction },
+        { role: "user", content: prompt }
+      ]
+    })
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`Sarvam API Error: ${errorData.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content;
+};
+
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
   ? process.env.ALLOWED_ORIGINS.split(',') 
   : ['http://localhost:5173'];
@@ -361,54 +392,76 @@ app.post('/api/analyze', authenticateToken, async (req, res) => {
 
     // 2. Perform Analysis
     const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
+    let analysisResult;
+    let usedFallback = false;
 
-    const parts = [];
-    if (attachment) {
-      parts.push({
-        inlineData: {
-          mimeType: attachment.mimeType,
-          data: attachment.data
-        }
-      });
+    // Try Sarvam AI first if it's a text-only idea (no attachment)
+    if (!attachment && SARVAM_API_KEY) {
+      try {
+        console.log("Attempting analysis with Sarvam AI...");
+        const sarvamResponse = await callSarvamAI(idea, systemPrompt);
+        // Ensure we only extract the JSON part if there's any surrounding text
+        const jsonMatch = sarvamResponse.match(/\{[\s\S]*\}/);
+        analysisResult = JSON.parse(jsonMatch ? jsonMatch[0] : sarvamResponse);
+        console.log("Sarvam AI analysis successful.");
+      } catch (sarvamError) {
+        console.error("Sarvam AI failed, falling back to Gemini:", sarvamError.message);
+        usedFallback = true;
+      }
+    } else {
+      usedFallback = true;
     }
-    if (idea) parts.push({ text: idea });
 
-    const modelName = attachment ? 'gemini-2.0-flash' : 'gemini-2.0-flash';
+    // Fallback to Gemini if Sarvam was skipped or failed
+    if (usedFallback) {
+      const parts = [];
+      if (attachment) {
+        parts.push({
+          inlineData: {
+            mimeType: attachment.mimeType,
+            data: attachment.data
+          }
+        });
+      }
+      if (idea) parts.push({ text: idea });
 
-    const response = await genAI.models.generateContent({
-      model: modelName,
-      contents: { parts },
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
-            oneLineTakeaway: { type: Type.STRING },
-            marketReality: { type: Type.STRING },
-            pros: { type: Type.ARRAY, items: { type: Type.STRING } },
-            cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-            competitors: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  name: { type: Type.STRING },
-                  differentiation: { type: Type.STRING }
+      const modelName = attachment ? 'gemini-2.0-flash' : 'gemini-2.0-flash';
+
+      const response = await genAI.models.generateContent({
+        model: modelName,
+        contents: { parts },
+        config: {
+          systemInstruction: systemPrompt,
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
+              oneLineTakeaway: { type: Type.STRING },
+              marketReality: { type: Type.STRING },
+              pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+              cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+              competitors: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    name: { type: Type.STRING },
+                    differentiation: { type: Type.STRING }
+                  }
                 }
-              }
-            },
-            monetizationStrategies: { type: Type.ARRAY, items: { type: Type.STRING } },
-            whyPeoplePay: { type: Type.STRING },
-            viabilityScore: { type: Type.INTEGER },
-            nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+              },
+              monetizationStrategies: { type: Type.ARRAY, items: { type: Type.STRING } },
+              whyPeoplePay: { type: Type.STRING },
+              viabilityScore: { type: Type.INTEGER },
+              nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
+            }
           }
         }
-      }
-    });
+      });
 
-    const analysisResult = JSON.parse(response.text());
+      analysisResult = JSON.parse(response.text());
+    }
 
     // 3. TRANSACTION: Deduct Credit & Save Report
     await prisma.$transaction(async (tx) => {
@@ -454,6 +507,21 @@ app.post('/api/chat', authenticateToken, async (req, res) => {
     const { message, context } = req.body;
     
     try {
+        // For chat, we attempt Sarvam first if no attachments in history (simple text chat)
+        if (SARVAM_API_KEY) {
+            try {
+                console.log("Attempting chat with Sarvam AI...");
+                const systemPrompt = SYSTEM_PROMPTS.CHAT_COFOUNDER
+                    .replace('{{originalIdea}}', context.originalIdea)
+                    .replace('{{reportSummary}}', JSON.stringify(context.report));
+                
+                const responseText = await callSarvamAI(message, systemPrompt);
+                return res.json({ text: responseText });
+            } catch (sarvamError) {
+                console.error("Sarvam Chat failed, falling back to Gemini:", sarvamError.message);
+            }
+        }
+
         const model = genAI.getGenerativeModel({ 
             model: "gemini-2.0-flash-exp",
             systemInstruction: SYSTEM_PROMPTS.CHAT_COFOUNDER
