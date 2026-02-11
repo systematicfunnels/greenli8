@@ -14,11 +14,9 @@ const AnalysisSchema = z.object({
     mimeType: z.string(),
     data: z.string()
   }).optional(),
-  preferredModel: z.enum(['auto', 'gemini', 'openrouter', 'sarvam']).optional(),
+  preferredModel: z.enum(['auto', 'gemini']).optional(),
   customApiKeys: z.object({
-    gemini: z.string().optional(),
-    openRouter: z.string().optional(),
-    sarvam: z.string().optional()
+    gemini: z.string().optional()
   }).optional()
 });
 

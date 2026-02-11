@@ -486,8 +486,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             >
               <option value="">Choose Model Provider</option>
               <option value="gemini">Google Gemini</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="sarvam">Sarvam AI</option>
               <option value="custom">Custom</option>
             </select>
           </div>
@@ -500,8 +498,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none bg-white text-sm"
               placeholder={
                 newProvider === 'gemini' ? "e.g. gemini-2.0-flash" :
-                newProvider === 'openrouter' ? "e.g. google/gemini-2.0-flash-001" :
-                newProvider === 'sarvam' ? "e.g. sarvam-m" :
                 "Enter model name here"
               }
               disabled={!newProvider}

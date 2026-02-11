@@ -115,8 +115,6 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits,
             >
               <option value="auto">Auto (Best available)</option>
               <option value="gemini">Google Gemini 2.0</option>
-              <option value="openrouter">OpenRouter (DeepSeek/Mistral)</option>
-              <option value="sarvam">Sarvam AI (Indian Market)</option>
             </select>
           </div>
           <textarea 

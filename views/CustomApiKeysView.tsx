@@ -11,15 +11,11 @@ interface CustomApiKeysProps {
 
 export const CustomApiKeysView: React.FC<CustomApiKeysProps> = ({ onBack, user, onUpdateProfile }) => {
   const [apiKeys, setApiKeys] = useState({
-    gemini: (user.preferences?.customApiKeys?.gemini) || '',
-    openRouter: (user.preferences?.customApiKeys?.openRouter) || '',
-    sarvam: (user.preferences?.customApiKeys?.sarvam) || ''
+    gemini: (user.preferences?.customApiKeys?.gemini) || ''
   });
   
   const [showKeys, setShowKeys] = useState({
-    gemini: false,
-    openRouter: false,
-    sarvam: false
+    gemini: false
   });
   
   const [isLoading, setIsLoading] = useState(false);
@@ -34,9 +30,7 @@ export const CustomApiKeysView: React.FC<CustomApiKeysProps> = ({ onBack, user, 
         preferences: {
           ...user.preferences,
           customApiKeys: {
-            gemini: apiKeys.gemini.trim() || undefined,
-            openRouter: apiKeys.openRouter.trim() || undefined,
-            sarvam: apiKeys.sarvam.trim() || undefined
+            gemini: apiKeys.gemini.trim() || undefined
           }
         }
       });
@@ -49,11 +43,11 @@ export const CustomApiKeysView: React.FC<CustomApiKeysProps> = ({ onBack, user, 
     }
   };
 
-  const handleClear = (provider: 'gemini' | 'openRouter' | 'sarvam') => {
+  const handleClear = (provider: 'gemini') => {
     setApiKeys(prev => ({ ...prev, [provider]: '' }));
   };
 
-  const toggleKeyVisibility = (provider: 'gemini' | 'openRouter' | 'sarvam') => {
+  const toggleKeyVisibility = (provider: 'gemini') => {
     setShowKeys(prev => ({ ...prev, [provider]: !prev[provider] }));
   };
 
@@ -66,22 +60,6 @@ export const CustomApiKeysView: React.FC<CustomApiKeysProps> = ({ onBack, user, 
           placeholder: 'AIzaSy...',
           url: 'https://aistudio.google.com/app/apikey',
           icon: '🤖'
-        };
-      case 'openRouter':
-        return {
-          name: 'OpenRouter',
-          description: 'Backup provider with multiple free models',
-          placeholder: 'sk-or-v1...',
-          url: 'https://openrouter.ai/keys',
-          icon: '🔄'
-        };
-      case 'sarvam':
-        return {
-          name: 'Sarvam AI',
-          description: 'Text-only fallback provider',
-          placeholder: 'your-sarvam-key...',
-          url: 'https://dashboard.sarvam.ai/',
-          icon: '🇮🇳'
         };
       default:
         return { name: provider, description: '', placeholder: '', url: '', icon: '🔑' };

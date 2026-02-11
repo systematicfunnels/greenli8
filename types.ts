@@ -14,8 +14,6 @@ export interface UserProfile {
     theme: 'light' | 'dark';
     customApiKeys?: {
       gemini?: string;
-      openRouter?: string;
-      sarvam?: string;
     };
   };
 }

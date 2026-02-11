@@ -2,16 +2,6 @@ import env from '../config/env.js';
 import { SYSTEM_PROMPTS } from '../../config/prompts.js';
 import { Type } from "@google/genai";
 
-const OPENROUTER_MODELS = [
-  "openrouter/auto",
-  "google/gemini-2.0-flash-lite-preview-02-05:free",
-  "google/gemini-2.0-flash-exp:free",
-  "deepseek/deepseek-chat:free",
-  "mistralai/mistral-7b-instruct:free",
-  "microsoft/phi-3-mini-128k-instruct:free",
-  "qwen/qwen-2.5-72b-instruct:free"
-];
-
 /**
  * Utility to wrap a promise with a timeout using AbortController
  * Vercel Hobby plan has a 10s limit, so we set timeout to 9s to fail gracefully.
@@ -48,7 +38,7 @@ const parseResponse = (text: string): any => {
 export const analyzeIdea = async (
   idea: string, 
   attachment: { mimeType: string; data: string } | null = null, 
-  customApiKeys?: { gemini?: string; openRouter?: string; sarvam?: string },
+  customApiKeys?: { gemini?: string },
   preferredModel: string = 'auto'
 ) => {
   const systemPrompt = SYSTEM_PROMPTS.STARTUP_ADVISOR;
@@ -59,14 +49,12 @@ export const analyzeIdea = async (
 
   // Use custom keys if provided, fallback to environment keys
   const geminiKey = customApiKeys?.gemini || env.geminiKey;
-  const openRouterKey = customApiKeys?.openRouter || env.openRouterKey;
-  const sarvamKey = customApiKeys?.sarvam || env.sarvamKey;
 
-  console.log(`[AI] Starting analysis. Preferred: ${preferredModel}, Keys: Gemini=${!!geminiKey}, OpenRouter=${!!openRouterKey}, Sarvam=${!!sarvamKey}`);
+  console.log(`[AI] Starting analysis. Preferred: ${preferredModel}, Keys: Gemini=${!!geminiKey}`);
   
   const failureDetails: string[] = [];
   
-  // Define provider attempts based on preference
+  // Define provider attempts (Only Gemini supported)
   const attempts: Array<{ name: string; key: string | undefined; run: () => Promise<any> }> = [
     {
       name: 'gemini',
@@ -123,87 +111,11 @@ export const analyzeIdea = async (
           return parseResponse(result.text || '');
         }, getRemainingTimeout());
       }
-    },
-    {
-      name: 'openrouter',
-      key: openRouterKey,
-      run: async () => {
-        console.log('[AI] Attempting OpenRouter...');
-        const openRouterErrors: string[] = [];
-        for (const model of OPENROUTER_MODELS) {
-          if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) break;
-          try {
-            return await callWithTimeout(async (signal) => {
-              const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${openRouterKey!}`,
-                  'Content-Type': 'application/json',
-                  'HTTP-Referer': 'https://greenli8.vercel.app',
-                  'X-Title': 'Greenli8 AI Analysis'
-                },
-                body: JSON.stringify({
-                  model: model,
-                  messages: [
-                    { role: 'system', content: systemPrompt },
-                    { role: 'user', content: idea }
-                  ]
-                }),
-                signal
-              });
-              const data = await res.json() as any;
-              if (!res.ok) throw new Error(data.error?.message || `OpenRouter error ${res.status}`);
-              return parseResponse(data.choices[0].message.content);
-            }, getRemainingTimeout());
-          } catch (e: any) {
-            console.error(`[AI] OpenRouter model ${model} failed: ${e.message}`);
-            openRouterErrors.push(`${model}: ${e.message}`);
-          }
-        }
-        throw new Error(`OpenRouter failed all models: ${openRouterErrors.join(', ')}`);
-      }
-    },
-    {
-      name: 'sarvam',
-      key: sarvamKey,
-      run: async () => {
-        if (attachment) throw new Error("Sarvam does not support attachments");
-        console.log('[AI] Attempting Sarvam...');
-        return await callWithTimeout(async (signal) => {
-          const res = await fetch('https://api.sarvam.ai/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-              'api-subscription-key': sarvamKey!,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              model: 'sarvam-m',
-              messages: [
-                { role: 'system', content: systemPrompt },
-                { role: 'user', content: idea }
-              ]
-            }),
-            signal
-          });
-          const data = await res.json() as any;
-          if (!res.ok) throw new Error(`Sarvam error ${res.status}: ${JSON.stringify(data)}`);
-          return parseResponse(data.choices[0].message.content);
-        }, getRemainingTimeout());
-      }
     }
   ];
 
-  // Reorder attempts based on preferredModel
-  let orderedAttempts = attempts;
-  if (preferredModel !== 'auto') {
-    const preferred = attempts.find(a => a.name === preferredModel);
-    if (preferred) {
-      orderedAttempts = [preferred, ...attempts.filter(a => a.name !== preferredModel)];
-    }
-  }
-
-  // Execute attempts in order
-  for (const attempt of orderedAttempts) {
+  // Execute attempts
+  for (const attempt of attempts) {
     if (!attempt.key) {
       failureDetails.push(`${attempt.name}: No API key provided`);
       continue;

@@ -143,8 +143,6 @@ export const api = {
       customApiKeys = {};
       customModels.forEach((m: any) => {
         if (m.provider === 'gemini') customApiKeys.gemini = m.apiKey;
-        if (m.provider === 'openrouter') customApiKeys.openRouter = m.apiKey;
-        if (m.provider === 'sarvam') customApiKeys.sarvam = m.apiKey;
       });
     }
 

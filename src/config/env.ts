@@ -19,8 +19,6 @@ export interface Config {
   nodeEnv: string;
   databaseUrl: string;
   geminiKey: string;
-  sarvamKey: string;
-  openRouterKey: string;
   stripeSecretKey: string;
   stripeWebhookSecret: string;
   resendApiKey: string;
@@ -36,8 +34,6 @@ const config: Config = {
   
   // AI Keys
   geminiKey: process.env.API_KEY || process.env.GEMINI_API_KEY || '',
-  sarvamKey: process.env.SARVAM_API_KEY || '',
-  openRouterKey: process.env.OPENROUTER_API_KEY || '',
   
   // Third Party
   stripeSecretKey: process.env.STRIPE_SECRET_KEY || '',
