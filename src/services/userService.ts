@@ -77,29 +77,38 @@ export const login = async ({ email, password }: any) => {
 
 export const googleLogin = async (token: string) => {
   console.log('[Auth Service] Attempting Google userinfo fetch');
-  const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-    headers: { Authorization: `Bearer ${token}` }
-  });
   
-  if (!userInfoRes.ok) {
-    const errorText = await userInfoRes.text();
-    console.error('[Auth Service] Google userinfo failed:', userInfoRes.status, errorText);
-    const error = new Error(`Google validation failed: ${userInfoRes.status} ${errorText}`) as any;
-    error.status = 401;
-    throw error;
-  }
-  
-  const payload = await userInfoRes.json() as any;
-  const { email, name, sub: googleId } = payload;
+  // Add a 5s timeout to Google API call
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-  let user = await prisma.user.findUnique({ where: { email } });
-  let isNewUser = false;
+  try {
+    const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal
+    });
+    clearTimeout(timeoutId);
+    
+    if (!userInfoRes.ok) {
+      const errorText = await userInfoRes.text();
+      console.error('[Auth Service] Google userinfo failed:', userInfoRes.status, errorText);
+      const error = new Error(`Google validation failed: ${userInfoRes.status} ${errorText}`) as any;
+      error.status = 401;
+      throw error;
+    }
+    
+    const payload = await userInfoRes.json() as any;
+    const { email, name, sub: googleId } = payload;
 
-  if (!user) {
-    console.log('[Auth Service] Creating new user for:', email);
-    isNewUser = true;
-    user = await prisma.user.create({
-      data: {
+    // Use upsert to handle create/update in one DB roundtrip
+    const user = await prisma.user.upsert({
+      where: { email },
+      update: { 
+        googleId,
+        // Optionally update name if it was missing or generic
+        name: name || undefined 
+      },
+      create: {
         email,
         name: name || email.split('@')[0],
         googleId,
@@ -111,32 +120,37 @@ export const googleLogin = async (token: string) => {
         } as any
       }
     });
-  } else if (!user.googleId) {
-    console.log('[Auth Service] Linking Google account to existing user:', email);
-    user = await prisma.user.update({
-      where: { email },
-      data: { googleId }
-    });
+
+    // Check if this was a new user (created within the last 2 seconds)
+    const isNewUser = Date.now() - user.createdAt.getTime() < 2000;
+
+    console.log('[Auth Service] Signing JWT for user:', user.id);
+    const jwtToken = jwt.sign(
+      { email: user.email, id: user.id, isPro: user.isPro },
+      env.jwtSecret,
+      { expiresIn: '7d' }
+    );
+
+    if (isNewUser && resend) {
+      resend.emails.send({
+        from: env.emailFrom,
+        to: email,
+        subject: "Welcome to Greenli8! 🚀",
+        html: `<h2>Welcome, ${user.name}!</h2><p>You have 20 free credits to start validating ideas.</p>`
+      }).catch(e => logger.error('Email failed:', e));
+    }
+
+    const { password: _, ...userWithoutPassword } = user;
+    return { user: userWithoutPassword, token: jwtToken, isNewUser };
+  } catch (error: any) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      const e = new Error("Google authentication timed out") as any;
+      e.status = 504;
+      throw e;
+    }
+    throw error;
   }
-
-  console.log('[Auth Service] Signing JWT for user:', user.id);
-  const jwtToken = jwt.sign(
-    { email: user.email, id: user.id, isPro: user.isPro },
-    env.jwtSecret,
-    { expiresIn: '7d' }
-  );
-
-  if (isNewUser && resend) {
-    resend.emails.send({
-      from: env.emailFrom,
-      to: email,
-      subject: "Welcome to Greenli8! 🚀",
-      html: `<h2>Welcome, ${user.name}!</h2><p>You have 20 free credits to start validating ideas.</p>`
-    }).catch(e => logger.error('Email failed:', e));
-  }
-
-  const { password: _, ...userWithoutPassword } = user;
-  return { user: userWithoutPassword, token: jwtToken, isNewUser };
 };
 
 export const getCurrentUser = async (email: string) => {
