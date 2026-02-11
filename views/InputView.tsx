@@ -14,8 +14,21 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits,
   const [preferredModel, setPreferredModel] = useState('auto');
   const [attachment, setAttachment] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [customModels, setCustomModels] = useState<any[]>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load custom models on mount
+  React.useEffect(() => {
+    const saved = localStorage.getItem('greenli8_custom_models');
+    if (saved) {
+      try {
+        setCustomModels(JSON.parse(saved));
+      } catch (e) {
+        console.error("Failed to parse custom models", e);
+      }
+    }
+  }, []);
 
   // Validation Constants
   const MIN_TEXT_LENGTH = 10;
@@ -115,6 +128,15 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits,
             >
               <option value="auto">Auto (Best available)</option>
               <option value="gemini">Google Gemini 1.5 Flash</option>
+              {customModels.length > 0 && (
+                <optgroup label="Custom Models">
+                  {customModels.map(m => (
+                    <option key={m.id} value={m.model}>
+                      {m.provider.charAt(0).toUpperCase() + m.provider.slice(1)}: {m.model}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
             </select>
           </div>
           <textarea 

@@ -66,6 +66,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [newModel, setNewModel] = useState('');
   const [newApiKey, setNewApiKey] = useState('');
   const [customModels, setCustomModels] = useState<any[]>([]);
+
+  const PROVIDER_MODELS: Record<string, string[]> = {
+    'gemini': ['gemini-2.0-flash', 'gemini-2.0-pro-exp-02-05', 'gemini-1.5-pro', 'gemini-1.5-flash'],
+    'openai': ['gpt-4o', 'gpt-4o-mini', 'o1-preview', 'o1-mini'],
+    'anthropic': ['claude-3-5-sonnet-latest', 'claude-3-5-haiku-latest', 'claude-3-opus-latest'],
+    'custom': []
+  };
   
   // Sync custom models from localStorage on mount
   useEffect(() => {
@@ -476,59 +483,93 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       </div>
 
       <Modal isOpen={isAddModelModalOpen} onClose={() => setIsAddModelModalOpen(false)} title="Add Model">
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-semibold mb-1 text-slate-700">* Provider</label>
-            <select 
-              value={newProvider}
-              onChange={(e) => setNewProvider(e.target.value)}
-              className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none bg-white text-sm"
-            >
-              <option value="">Choose Model Provider</option>
-              <option value="gemini">Google Gemini</option>
-              <option value="custom">Custom</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1 text-slate-700">* Model Name</label>
-            <input 
-              type="text"
-              value={newModel}
-              onChange={(e) => setNewModel(e.target.value)}
-              className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none bg-white text-sm"
-              placeholder={
-                newProvider === 'gemini' ? "e.g. gemini-1.5-flash" :
-                "Enter model name here"
-              }
-              disabled={!newProvider}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-semibold mb-1 text-slate-700">* API Key</label>
-            <div className="relative">
-              <input 
-                type="password" 
-                value={newApiKey}
-                onChange={(e) => setNewApiKey(e.target.value)}
-                className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none text-sm pr-10 ${
-                  newApiKey.length >= 8 ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200'
-                }`} 
-                placeholder="Fill API Key here" 
-              />
+        <div className="space-y-6 bg-slate-900 -m-6 p-8 text-white rounded-b-2xl">
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-slate-300">
+                <span className="text-rose-500 mr-1">*</span>Provider
+              </label>
+              <div className="relative">
+                <select 
+                  value={newProvider}
+                  onChange={(e) => {
+                    setNewProvider(e.target.value);
+                    setNewModel('');
+                  }}
+                  className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-white text-sm appearance-none cursor-pointer"
+                >
+                  <option value="" className="bg-slate-800">Choose Model Provider</option>
+                  <option value="gemini" className="bg-slate-800">Google Gemini</option>
+                  <option value="openai" className="bg-slate-800">OpenAI</option>
+                  <option value="anthropic" className="bg-slate-800">Anthropic</option>
+                  <option value="custom" className="bg-slate-800">Custom</option>
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-slate-300">
+                <span className="text-rose-500 mr-1">*</span>Model
+              </label>
+              <div className="relative">
+                {newProvider && PROVIDER_MODELS[newProvider]?.length > 0 ? (
+                  <>
+                    <select 
+                      value={newModel}
+                      onChange={(e) => setNewModel(e.target.value)}
+                      className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-white text-sm appearance-none cursor-pointer"
+                    >
+                      <option value="" className="bg-slate-800">Choose Model</option>
+                      {PROVIDER_MODELS[newProvider].map(m => (
+                        <option key={m} value={m} className="bg-slate-800">{m}</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" size={16} />
+                  </>
+                ) : (
+                  <input 
+                    type="text"
+                    value={newModel}
+                    onChange={(e) => setNewModel(e.target.value)}
+                    className="w-full p-3 bg-slate-800 border border-slate-700 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-white text-sm"
+                    placeholder={newProvider === 'custom' ? "Enter model name" : "Choose Provider first"}
+                    disabled={!newProvider}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold mb-2 text-slate-300">
+                <span className="text-rose-500 mr-1">*</span>API Key
+              </label>
+              <div className="relative">
+                <input 
+                  type="password" 
+                  value={newApiKey}
+                  onChange={(e) => setNewApiKey(e.target.value)}
+                  className={`w-full p-3 bg-slate-800 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none text-white text-sm pr-10 ${
+                    newApiKey.length >= 8 ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-700'
+                  }`} 
+                  placeholder="Fill API Key here" 
+                />
+                {newApiKey.length >= 8 && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
+                    <CheckCircle2 size={16} />
+                  </div>
+                )}
+              </div>
               {newApiKey.length >= 8 && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
-                  <CheckCircle2 size={16} />
-                </div>
+                <p className="text-[10px] text-emerald-500 mt-2 flex items-center gap-1 font-medium">
+                  API key is configured correctly
+                </p>
               )}
             </div>
-            {newApiKey.length >= 8 && (
-              <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1 font-medium">
-                API key is configured correctly
-              </p>
-            )}
           </div>
+
           <div className="pt-2">
-            <Button fullWidth onClick={handleAddModel} className="bg-slate-900 text-white py-3">
+            <Button fullWidth onClick={handleAddModel} className="bg-blue-600 hover:bg-blue-700 text-white py-3 font-bold text-sm rounded-xl transition-all active:scale-95 shadow-lg shadow-blue-900/20">
               Add Model
             </Button>
           </div>
