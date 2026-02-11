@@ -114,7 +114,7 @@ export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits,
               className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-400 text-slate-600 cursor-pointer"
             >
               <option value="auto">Auto (Best available)</option>
-              <option value="gemini">Google Gemini 3.0 Flash</option>
+              <option value="gemini">Google Gemini 1.5 Flash</option>
             </select>
           </div>
           <textarea 

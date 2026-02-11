@@ -497,7 +497,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               onChange={(e) => setNewModel(e.target.value)}
               className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none bg-white text-sm"
               placeholder={
-                newProvider === 'gemini' ? "e.g. gemini-2.0-flash" :
+                newProvider === 'gemini' ? "e.g. gemini-1.5-flash" :
                 "Enter model name here"
               }
               disabled={!newProvider}

@@ -72,7 +72,7 @@ export const analyzeIdea = async (
       parts.push({ text: `Analyze this startup idea: ${idea}` });
 
       const result = await ai.models.generateContent({
-        model: 'gemini-2.0-flash',
+        model: 'gemini-1.5-flash',
         contents: [{ role: 'user', parts }],
         config: {
           systemInstruction: systemPrompt,
@@ -121,7 +121,7 @@ export const chatWithAI = async (message: string, context: { originalIdea: strin
   const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
   const result = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-1.5-flash',
     contents: [
       {
         role: "user",
