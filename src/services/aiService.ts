@@ -1,5 +1,4 @@
 import env from '../config/env.js';
-import logger from '../utils/logger.js';
 import { SYSTEM_PROMPTS } from '../../config/prompts.js';
 import { Type } from "@google/genai";
 
@@ -65,6 +64,8 @@ export const analyzeIdea = async (
 
   console.log(`[AI] Starting analysis. Preferred: ${preferredModel}, Keys: Gemini=${!!geminiKey}, OpenRouter=${!!openRouterKey}, Sarvam=${!!sarvamKey}`);
   
+  const failureDetails: string[] = [];
+  
   // Define provider attempts based on preference
   const attempts: Array<{ name: string; key: string | undefined; run: () => Promise<any> }> = [
     {
@@ -128,6 +129,7 @@ export const analyzeIdea = async (
       key: openRouterKey,
       run: async () => {
         console.log('[AI] Attempting OpenRouter...');
+        const openRouterErrors: string[] = [];
         for (const model of OPENROUTER_MODELS) {
           if (Date.now() - startTime > GLOBAL_TIMEOUT - 2000) break;
           try {
@@ -153,11 +155,12 @@ export const analyzeIdea = async (
               if (!res.ok) throw new Error(data.error?.message || `OpenRouter error ${res.status}`);
               return parseResponse(data.choices[0].message.content);
             }, getRemainingTimeout());
-          } catch (e) {
-            console.error(`[AI] OpenRouter model ${model} failed`);
+          } catch (e: any) {
+            console.error(`[AI] OpenRouter model ${model} failed: ${e.message}`);
+            openRouterErrors.push(`${model}: ${e.message}`);
           }
         }
-        throw new Error("OpenRouter failed all models");
+        throw new Error(`OpenRouter failed all models: ${openRouterErrors.join(', ')}`);
       }
     },
     {
@@ -183,7 +186,7 @@ export const analyzeIdea = async (
             signal
           });
           const data = await res.json() as any;
-          if (!res.ok) throw new Error(`Sarvam error ${res.status}`);
+          if (!res.ok) throw new Error(`Sarvam error ${res.status}: ${JSON.stringify(data)}`);
           return parseResponse(data.choices[0].message.content);
         }, getRemainingTimeout());
       }
@@ -201,17 +204,26 @@ export const analyzeIdea = async (
 
   // Execute attempts in order
   for (const attempt of orderedAttempts) {
-    if (!attempt.key) continue;
-    if (Date.now() - startTime > GLOBAL_TIMEOUT - 1000) break;
+    if (!attempt.key) {
+      failureDetails.push(`${attempt.name}: No API key provided`);
+      continue;
+    }
+    if (Date.now() - startTime > GLOBAL_TIMEOUT - 1000) {
+      failureDetails.push(`${attempt.name}: Skipped due to timeout`);
+      break;
+    }
     
     try {
       return await attempt.run();
     } catch (e: any) {
       console.error(`[AI] ${attempt.name} failed:`, e.message);
+      failureDetails.push(`${attempt.name}: ${e.message}`);
     }
   }
 
-  throw new Error('All AI providers failed. Please check your API keys configuration.');
+  const finalError = `All AI providers failed. Details: ${failureDetails.join(' | ')}`;
+  console.error(`[AI] ${finalError}`);
+  throw new Error(finalError);
 };
 
 /**

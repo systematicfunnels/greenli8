@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
-import { Loader2, FileArchive, Key, Trash2 } from 'lucide-react';
+import { Loader2, FileArchive, Key, Trash2, ChevronDown, ChevronRight, Edit2, Zap, Sparkles, Box } from 'lucide-react';
 import { UserProfile, ValidationReport } from '../types';
 import { jsPDF } from "jspdf";
 import JSZip from "jszip";
@@ -16,7 +16,6 @@ interface SettingsViewProps {
   onLogout: () => void;
   credits: number;
   isLifetime: boolean;
-  onNavigateToApiKeys?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ 
@@ -27,8 +26,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   onUpdateProfile,
   onLogout,
   credits,
-  isLifetime,
-  onNavigateToApiKeys 
+  isLifetime 
 }) => {
   // Profile State
   const [name, setName] = useState(user?.name || '');
@@ -45,6 +43,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isExporting, setIsExporting] = useState(false);
   const [_passwordResetSent, _setPasswordResetSent] = useState(false);
   const [isAddModelModalOpen, setIsAddModelModalOpen] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<string[]>(['premium', 'advanced', 'custom']);
+
+  const toggleSection = (section: string) => {
+    setExpandedSections(prev => 
+      prev.includes(section) ? prev.filter(s => s !== section) : [...prev, section]
+    );
+  };
+
+  const premiumModels = [
+    { name: 'Gemini-2.0-Pro', type: 'Premium', provider: 'TRAE', icon: <Sparkles size={14} /> },
+    { name: 'Gemini-1.5-Pro', type: 'Premium', provider: 'TRAE', icon: <Sparkles size={14} /> },
+  ];
+
+  const advancedModels = [
+    { name: 'Gemini-2.0-Flash', type: 'Standard', provider: 'TRAE', icon: <Zap size={14} /> },
+    { name: 'Gemini-1.5-Flash', type: 'Standard', provider: 'TRAE', icon: <Zap size={14} /> },
+  ];
 
   // Add Model Form State
   const [newProvider, setNewProvider] = useState('');
@@ -340,68 +355,122 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {activeTab === 'api_keys' && (
            <div className="space-y-6">
-             <Card title="Custom API Keys">
+             <Card title="Model Management">
                 <div className="space-y-4">
-                   <p className="text-sm text-slate-600 mb-4">
-                      Add your own AI provider API keys for better reliability and control. Your keys are stored securely and used only for your requests.
-                   </p>
-                   
-                   <div className="flex gap-2">
-                      <Button 
-                         onClick={onNavigateToApiKeys}
-                         className="flex-1 gap-2"
-                      >
-                         <Key size={16} />
-                         Manage API Keys
-                      </Button>
+                   <div className="flex justify-between items-center mb-2">
+                      <p className="text-sm text-slate-600">
+                         Manage your AI models and API keys. Custom keys are stored locally.
+                      </p>
                       <Button 
                          variant="outline"
+                         size="sm"
                          onClick={() => setIsAddModelModalOpen(true)}
                          className="gap-2"
                       >
-                         Add Model
+                         <Key size={14} />
+                         Add Custom Model
                       </Button>
                    </div>
-                   
-                   <div className="text-xs text-slate-500 space-y-1 pt-2">
-                      <p>• Supports Google Gemini, OpenRouter, and Sarvam AI</p>
-                      <p>• Custom keys override environment keys</p>
-                      <p>• Keys are encrypted and stored securely</p>
+
+                   <div className="overflow-hidden border border-slate-200 rounded-lg bg-slate-50/30">
+                      <div className="grid grid-cols-12 gap-4 px-4 py-3 border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                         <div className="col-span-6">Model</div>
+                         <div className="col-span-2">Type</div>
+                         <div className="col-span-2">Provider</div>
+                         <div className="col-span-2 text-right">Actions</div>
+                      </div>
+
+                      <div className="divide-y divide-slate-100 bg-white">
+                         {/* Premium Models Section */}
+                         <div>
+                            <button 
+                               onClick={() => toggleSection('premium')}
+                               className="w-full flex items-center gap-2 px-4 py-2 bg-slate-50/50 hover:bg-slate-100/50 transition-colors text-xs font-semibold text-slate-700 border-b border-slate-100"
+                            >
+                               {expandedSections.includes('premium') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                               Premium Models
+                            </button>
+                            {expandedSections.includes('premium') && premiumModels.map((m, idx) => (
+                               <div key={idx} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-slate-50/30 transition-colors border-b border-slate-50 last:border-0">
+                                  <div className="col-span-6 flex items-center gap-3">
+                                     <div className="text-slate-400">{m.icon}</div>
+                                     <span className="text-sm font-medium text-slate-700">{m.name}</span>
+                                  </div>
+                                  <div className="col-span-2 text-xs text-slate-400">-</div>
+                                  <div className="col-span-2 text-xs font-medium text-slate-400">{m.provider}</div>
+                                  <div className="col-span-2 text-right text-xs text-slate-400">-</div>
+                               </div>
+                            ))}
+                         </div>
+
+                         {/* Advanced Models Section */}
+                         <div>
+                            <button 
+                               onClick={() => toggleSection('advanced')}
+                               className="w-full flex items-center gap-2 px-4 py-2 bg-slate-50/50 hover:bg-slate-100/50 transition-colors text-xs font-semibold text-slate-700 border-b border-slate-100"
+                            >
+                               {expandedSections.includes('advanced') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                               Standard Models
+                            </button>
+                            {expandedSections.includes('advanced') && advancedModels.map((m, idx) => (
+                               <div key={idx} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-slate-50/30 transition-colors border-b border-slate-50 last:border-0">
+                                  <div className="col-span-6 flex items-center gap-3">
+                                     <div className="text-slate-400">{m.icon}</div>
+                                     <span className="text-sm font-medium text-slate-700">{m.name}</span>
+                                  </div>
+                                  <div className="col-span-2 text-xs text-slate-400">-</div>
+                                  <div className="col-span-2 text-xs font-medium text-slate-400">{m.provider}</div>
+                                  <div className="col-span-2 text-right text-xs text-slate-400">-</div>
+                               </div>
+                            ))}
+                         </div>
+
+                         {/* Custom Models Section */}
+                         <div>
+                            <button 
+                               onClick={() => toggleSection('custom')}
+                               className="w-full flex items-center gap-2 px-4 py-2 bg-slate-50/50 hover:bg-slate-100/50 transition-colors text-xs font-semibold text-slate-700 border-b border-slate-100"
+                            >
+                               {expandedSections.includes('custom') ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                               Custom Models
+                            </button>
+                            {expandedSections.includes('custom') && (
+                               customModels.length > 0 ? (
+                                  customModels.map((m) => (
+                                     <div key={m.id} className="grid grid-cols-12 gap-4 px-4 py-3 items-center hover:bg-slate-50/30 transition-colors border-b border-slate-50 last:border-0">
+                                        <div className="col-span-6 flex items-center gap-3">
+                                           <div className="text-slate-400"><Box size={14} /></div>
+                                           <span className="text-sm font-medium text-slate-700">{m.model}</span>
+                                        </div>
+                                        <div className="col-span-2 text-[10px] font-bold uppercase tracking-wider text-slate-500">Advanced</div>
+                                        <div className="col-span-2 text-xs font-medium text-slate-600 capitalize">{m.provider}</div>
+                                        <div className="col-span-2 flex items-center justify-end gap-2">
+                                           <button className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded transition-colors">
+                                              <Edit2 size={14} />
+                                           </button>
+                                           <button 
+                                              onClick={() => removeModel(m.id)}
+                                              className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded transition-colors"
+                                           >
+                                              <Trash2 size={14} />
+                                           </button>
+                                           <div className="w-8 h-4 bg-emerald-500 rounded-full relative cursor-pointer ml-1">
+                                              <div className="absolute right-0.5 top-0.5 bg-white w-3 h-3 rounded-full shadow-sm" />
+                                           </div>
+                                        </div>
+                                     </div>
+                                  ))
+                               ) : (
+                                  <div className="px-4 py-8 text-center text-slate-400 text-xs italic">
+                                     No custom models configured.
+                                  </div>
+                               )
+                            )}
+                         </div>
+                      </div>
                    </div>
                 </div>
              </Card>
-
-             {customModels.length > 0 && (
-               <Card title="Configured Models">
-                 <div className="divide-y divide-slate-100">
-                   {customModels.map((m) => (
-                     <div key={m.id} className="py-4 first:pt-0 last:pb-0 flex items-center justify-between group">
-                       <div className="flex items-center gap-4">
-                         <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-600 border border-slate-100">
-                           {m.provider === 'gemini' ? '🤖' : m.provider === 'openrouter' ? '🔄' : m.provider === 'sarvam' ? '🇮🇳' : '🔑'}
-                         </div>
-                         <div>
-                           <p className="text-sm font-semibold text-slate-900 capitalize">{m.provider}</p>
-                           <p className="text-xs text-slate-500">{m.model}</p>
-                         </div>
-                       </div>
-                       <div className="flex items-center gap-3">
-                         <div className="hidden sm:block px-2 py-1 bg-emerald-50 text-emerald-700 rounded text-[10px] font-bold uppercase tracking-wider border border-emerald-100">
-                           Active
-                         </div>
-                         <button 
-                           onClick={() => removeModel(m.id)}
-                           className="text-slate-400 hover:text-rose-500 transition-colors p-2 hover:bg-rose-50 rounded-lg"
-                           title="Remove model"
-                         >
-                           <Trash2 size={18} />
-                         </button>
-                       </div>
-                     </div>
-                   ))}
-                 </div>
-               </Card>
-             )}
            </div>
         )}
       </div>
