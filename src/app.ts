@@ -59,7 +59,7 @@ app.use((req: Request, _res: Response, next: NextFunction) => {
 // Rate limiting
 app.use('/api', rateLimit({
   windowMs: 15 * 60 * 1000,
-  limit: 200,
+  limit: 500, // Increased from 200 to 500
   message: { error: "Too many requests, please try again later." }
 }));
 

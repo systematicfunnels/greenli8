@@ -7,6 +7,7 @@ import { MOCK_REPORT } from './types';
 import { validateIdea } from './services/geminiService';
 
 import { api } from './services/api'; 
+import { useAuth } from './context/AuthContext';
 
 import { MarketingLandingView } from './views/MarketingLandingView';
 
@@ -49,22 +50,7 @@ import { Button } from './components/Button';
 
 
 export const App: React.FC = () => {
-
-  // --- User State ---
-
-  const [user, setUser] = useState<UserProfile | null>(() => {
-
-    try {
-
-      const saved = localStorage.getItem('Greenli8_user');
-
-      return saved ? JSON.parse(saved) : null;
-
-    } catch { return null; }
-
-  });
-
-
+  const { user, credits, isLifetime, login, logout, updateProfile, refreshUser, isLoading: isAuthLoading } = useAuth();
 
   const [currentView, setCurrentView] = useState<ViewState>(() => {
 
@@ -109,15 +95,9 @@ export const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
 
   const [history, setHistory] = useState<ValidationReport[]>([]);
-
   
-
-  const [credits, setCredits] = useState<number>(user?.credits || 20);
-
-  const [isLifetime, setIsLifetime] = useState<boolean>(user?.isPro || false);
-
-
-
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  
   // --- UI State ---
 
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -134,103 +114,27 @@ export const App: React.FC = () => {
 
   // --- Effects ---
 
-
-
-  // 1. Load Data on Mount / User Change
-
+  // 1. Load History on Mount / User Change
   useEffect(() => {
-
-    const loadData = async () => {
-
-      // Local Storage Load (Guest)
-
-      if (!user) {
-
-        try {
-
-          const savedHistory = localStorage.getItem('Greenli8_history');
-
-          if (savedHistory) setHistory(JSON.parse(savedHistory));
-
-          
-
-          const savedCredits = localStorage.getItem('Greenli8_credits');
-
-          if (savedCredits) setCredits(parseInt(savedCredits));
-
-          
-
-          const savedLifetime = localStorage.getItem('Greenli8_lifetime');
-
-          if (savedLifetime === 'true') setIsLifetime(true);
-
-        } catch (e) { console.error(e); }
-
-        return;
-
-      }
-
-
-
-      // API Load (Authenticated)
-
+    const loadHistory = async () => {
+      setIsHistoryLoading(true);
       try {
-
-        const token = localStorage.getItem('Greenli8_token');
-
-        if (!token) {
-
-          console.warn("User state exists but token is missing, forcing logout");
-
-          handleLogout();
-
-          return;
-
+        if (!user) {
+          const savedHistory = localStorage.getItem('Greenli8_history');
+          if (savedHistory) setHistory(JSON.parse(savedHistory));
+        } else {
+          const dbHistory = await api.getHistory();
+          setHistory(dbHistory);
         }
-
-
-
-        const dbHistory = await api.getHistory();
-
-        setHistory(dbHistory);
-
-        
-
-        // Refresh user details to get accurate credits from DB
-
-        const dbUser = await api.getCurrentUser(); 
-
-        setUser(dbUser);
-
-        setCredits(dbUser.credits);
-
-        setIsLifetime(dbUser.isPro);
-
       } catch (e: any) {
-
-        console.error("Failed to sync with backend", e);
-
-        // If auth fails (401 or 403), clear local state and force logout
-
-        const errorMessage = e.message?.toLowerCase() || "";
-
-        if (errorMessage.includes('401') || errorMessage.includes('403') || errorMessage.includes('token')) {
-
-          handleLogout();
-
-        }
-
+        console.error("Failed to load history", e);
+      } finally {
+        setIsHistoryLoading(false);
       }
-
     };
 
-
-
-    loadData();
-
+    loadHistory();
   }, [user]); 
-
-
 
   // 2. Click Outside Dropdown
 
@@ -301,17 +205,11 @@ export const App: React.FC = () => {
             
 
             if (user && data.customer_email === user.email) {
-
                  if (data.plan === 'lifetime') {
-
-                     handleUpdateProfile({ isPro: true });
-
+                     updateProfile({ isPro: true });
                  } else {
-
-                     handleUpdateProfile({ credits: credits + 1 });
-
+                     updateProfile({ credits: credits + 1 });
                  }
-
             }
 
             
@@ -341,161 +239,39 @@ export const App: React.FC = () => {
 
 
   const handlePaymentSuccess = (planType: string) => {
-
     const plan = planType === 'lifetime' ? 'lifetime' : 'single';
-
     
-
     if (plan === 'lifetime') {
-
-        setIsLifetime(true);
-
         if (!user) localStorage.setItem('Greenli8_lifetime', 'true');
-
     } else {
-
-        const newCredits = credits + 1;
-
-        setCredits(newCredits);
-
-        if (!user) localStorage.setItem('Greenli8_credits', newCredits.toString());
-
+        if (!user) localStorage.setItem('Greenli8_credits', (credits + 1).toString());
     }
-
     
-
     setPurchasedPlan(plan);
-
     setCurrentView('purchase_success');
-
   };
-
-
-
-  const handleLogin = async (userData: UserProfile) => {
-
-    try {
-
-      setUser(userData);
-
-      setCredits(userData.credits);
-
-      setIsLifetime(userData.isPro);
-
-      localStorage.setItem('Greenli8_user', JSON.stringify(userData));
-
-      
-
-      // No need to load history here, the useEffect[user] will trigger it
-
-      setCurrentView('dashboard');
-
-    } catch (e) {
-
-      console.error("Login state update failed", e);
-
-    }
-
-  };
-
-
 
   const handleLogout = () => {
-
-    setUser(null);
-
-    api.logout(); // Use service to clear token
-
-    localStorage.removeItem('Greenli8_user');
-
+    logout();
     setCurrentView('marketing');
-
   };
-
-
-
-  const handleUpdateProfile = async (data: Partial<UserProfile>) => {
-
-    if (!user) return;
-
-    
-
-    const oldUser = user;
-
-
-
-    // Optimistic update
-
-    setUser(prevUser => {
-
-      if (!prevUser) return null;
-
-      const updated = { ...prevUser, ...data };
-
-      localStorage.setItem('Greenli8_user', JSON.stringify(updated));
-
-      return updated;
-
-    });
-
-    
-
-    try {
-
-      await api.updateProfile(data);
-
-    } catch (e) {
-
-      console.error("Failed to sync profile update", e);
-
-      // Rollback on failure
-
-      setUser(oldUser);
-
-      localStorage.setItem('Greenli8_user', JSON.stringify(oldUser));
-
-    }
-
-  };
-
-
 
   const handleDeleteData = async () => {
-
     if (user) {
-
         try {
-
             await api.deleteAccount();
-
         } catch (e) {
-
             alert("Failed to delete account on server.");
-
             return;
-
         }
-
     }
-
     
-
-    const keysToRemove = ['Greenli8_user', 'Greenli8_history', 'Greenli8_credits', 'Greenli8_lifetime'];
-
+    const keysToRemove = ['Greenli8_history', 'Greenli8_credits', 'Greenli8_lifetime'];
     keysToRemove.forEach(key => localStorage.removeItem(key));
-
     
-
     setHistory([]);
-
-    setCredits(20);
-
-    setIsLifetime(false);
-
-    setUser(null);
-
+    logout();
     setCurrentView('marketing');
-
   };
 
 
@@ -579,23 +355,11 @@ export const App: React.FC = () => {
       
 
       if (user) {
-
          // Update local credits from server response
-
          if (result.remainingCredits !== undefined) {
-
              const newCredits = result.remainingCredits === 'unlimited' ? credits : result.remainingCredits;
-
-             setCredits(newCredits);
-
-             const updatedUser = { ...user, credits: newCredits };
-
-             setUser(updatedUser);
-
-             localStorage.setItem('Greenli8_user', JSON.stringify(updatedUser));
-
+             updateProfile({ credits: newCredits });
          }
-
       } else {
 
           // Guest Logic (Local Storage)
@@ -651,43 +415,19 @@ export const App: React.FC = () => {
 
 
   const handleSimulatedPurchase = async (plan: 'single' | 'lifetime' | 'maker' | 'pro') => {
-
       if (plan === 'single') {
-
-          const newCredits = credits + 1;
-
-          setCredits(newCredits);
-
-          if (user) handleUpdateProfile({ credits: newCredits });
-
-          else localStorage.setItem('Greenli8_credits', newCredits.toString());
-
+          if (user) updateProfile({ credits: credits + 1 });
+          else localStorage.setItem('Greenli8_credits', (credits + 1).toString());
       } else if (plan === 'maker') {
-
-          const newCredits = credits + 10;
-
-          setCredits(newCredits);
-
-          if (user) handleUpdateProfile({ credits: newCredits });
-
-          else localStorage.setItem('Greenli8_credits', newCredits.toString());
-
+          if (user) updateProfile({ credits: credits + 10 });
+          else localStorage.setItem('Greenli8_credits', (credits + 10).toString());
       } else {
-
           // lifetime or pro
-
-          setIsLifetime(true);
-
-          if (user) handleUpdateProfile({ isPro: true });
-
+          if (user) updateProfile({ isPro: true });
           else localStorage.setItem('Greenli8_lifetime', 'true');
-
       }
-
       setPurchasedPlan(plan);
-
       setCurrentView('purchase_success');
-
   };
 
 
@@ -918,9 +658,7 @@ export const App: React.FC = () => {
       <main className={`flex-grow ${currentView === 'chat' ? 'h-screen' : 'py-8 md:py-12'}`}>
 
         {currentView === 'auth' && (
-
-            <AuthView onLogin={handleLogin} onBack={() => setCurrentView('marketing')} />
-
+            <AuthView onLogin={login} onBack={() => setCurrentView('marketing')} />
         )}
 
         {currentView === 'dashboard' && user && (
@@ -938,6 +676,8 @@ export const App: React.FC = () => {
                 onViewReport={loadReport}
 
                 onExample={handleExample}
+                
+                isLoading={isAuthLoading || isHistoryLoading}
 
             />
 
@@ -996,6 +736,8 @@ export const App: React.FC = () => {
                 onClear={() => handleDeleteData()} 
 
                 onBack={() => setCurrentView(user ? 'dashboard' : 'marketing')}
+                
+                isLoading={isAuthLoading || isHistoryLoading}
 
             />
 
@@ -1025,7 +767,7 @@ export const App: React.FC = () => {
 
                 onDeleteData={handleDeleteData}
 
-                onUpdateProfile={handleUpdateProfile}
+                onUpdateProfile={updateProfile}
 
                 onLogout={handleLogout}
 
@@ -1041,7 +783,7 @@ export const App: React.FC = () => {
             <CustomApiKeysView 
                 user={user}
                 onBack={() => setCurrentView('settings')}
-                onUpdateProfile={handleUpdateProfile}
+                onUpdateProfile={updateProfile}
             />
         )}
 

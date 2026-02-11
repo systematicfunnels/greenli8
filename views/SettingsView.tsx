@@ -52,13 +52,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const premiumModels = [
-    { name: 'Gemini-2.0-Pro', type: 'Premium', provider: 'GREENLI8', icon: <Sparkles size={14} /> },
     { name: 'Gemini-1.5-Pro', type: 'Premium', provider: 'GREENLI8', icon: <Sparkles size={14} /> },
   ];
 
   const advancedModels = [
-    { name: 'Gemini-2.0-Flash', type: 'Standard', provider: 'GREENLI8', icon: <Zap size={14} /> },
-    { name: 'Gemini-1.5-Flash', type: 'Standard', provider: 'GREENLI8', icon: <Zap size={14} /> },
+    { name: 'Gemini-1.5-Flash-Latest', type: 'Standard', provider: 'GREENLI8', icon: <Zap size={14} /> },
   ];
 
   // Add Model Form State

@@ -14,7 +14,7 @@ const AnalysisSchema = z.object({
     mimeType: z.string(),
     data: z.string()
   }).optional(),
-  preferredModel: z.enum(['auto', 'gemini']).optional(),
+  preferredModel: z.string().optional(),
   customApiKeys: z.object({
     gemini: z.string().optional()
   }).optional()

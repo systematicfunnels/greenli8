@@ -3,7 +3,6 @@ import { UserProfile, ValidationReport } from "../types";
 const getApiUrl = () => {
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (import.meta.env.PROD) {
-    // If we're on Vercel, we can use a relative path or the current origin
     if (typeof window !== 'undefined') {
       return `${window.location.origin}/api`;
     }
@@ -16,103 +15,73 @@ const API_URL = getApiUrl();
 
 const getHeaders = () => {
   const token = localStorage.getItem('Greenli8_token');
-  if (!token) {
-    console.warn("Attempting protected request without token");
-  }
   return {
     'Content-Type': 'application/json',
     ...(token ? { 'Authorization': `Bearer ${token}` } : {})
   };
 };
 
+/**
+ * Core request helper with global error handling
+ */
+const request = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
+  const url = path.startsWith('http') ? path : `${API_URL}${path}`;
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      ...getHeaders(),
+      ...options.headers,
+    },
+  });
+
+  const text = await response.text();
+  let data: any;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    // Not JSON
+  }
+
+  if (!response.ok) {
+    // Global 401/403 Handling
+    if (response.status === 401 || response.status === 403) {
+      localStorage.removeItem('Greenli8_token');
+      // We don't trigger a hard redirect here to allow the AuthContext 
+      // to handle the state change gracefully via its refreshUser loop or effect
+    }
+    const error = data?.error || text.slice(0, 100) || response.statusText;
+    throw new Error(error);
+  }
+
+  return data;
+};
+
 export const api = {
   // --- Auth & User ---
   signup: async (email: string, password: string, name?: string): Promise<UserProfile> => {
-    const res = await fetch(`${API_URL}/auth/signup`, {
+    const data = await request<{ user: UserProfile; token: string }>('/auth/signup', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password, name }),
     });
-    
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // Not JSON
-    }
-
-    if (!res.ok) {
-      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
-    }
-    
-    if (data.token) {
-      localStorage.setItem('Greenli8_token', data.token);
-      // Wait for localStorage to persist
-      if (localStorage.getItem('Greenli8_token') !== data.token) {
-        console.warn("Token persistence delayed");
-      }
-    }
+    if (data.token) localStorage.setItem('Greenli8_token', data.token);
     return data.user;
   },
 
   login: async (email: string, password: string): Promise<UserProfile> => {
-    const res = await fetch(`${API_URL}/auth/login`, {
+    const data = await request<{ user: UserProfile; token: string }>('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
-
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // Not JSON
-    }
-
-    if (!res.ok) {
-      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
-    }
-
-    if (data.token) {
-      localStorage.setItem('Greenli8_token', data.token);
-      // Wait for localStorage to persist
-      if (localStorage.getItem('Greenli8_token') !== data.token) {
-        console.warn("Token persistence delayed");
-      }
-    }
+    if (data.token) localStorage.setItem('Greenli8_token', data.token);
     return data.user;
   },
 
   googleLogin: async (token: string): Promise<UserProfile> => {
-    const res = await fetch(`${API_URL}/auth/google`, {
+    const data = await request<{ user: UserProfile; token: string }>('/auth/google', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token }),
     });
-
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // Not JSON
-    }
-
-    if (!res.ok) {
-      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
-    }
-
-    if (!data || !data.token) {
-      throw new Error("Invalid response from server");
-    }
-
-    localStorage.setItem('Greenli8_token', data.token);
-    // Wait for localStorage to persist
-    if (localStorage.getItem('Greenli8_token') !== data.token) {
-      console.warn("Token persistence delayed");
-    }
+    if (data.token) localStorage.setItem('Greenli8_token', data.token);
     return data.user;
   },
 
@@ -121,21 +90,15 @@ export const api = {
   },
 
   getCurrentUser: async (): Promise<UserProfile> => {
-    const res = await fetch(`${API_URL}/users/me`, {
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error('Failed to fetch user');
-    return res.json();
+    return request<UserProfile>('/users/me');
   },
 
   // --- AI ---
   analyzeIdea: async (idea: string, attachment?: { mimeType: string, data: string }, preferredModel?: string): Promise<ValidationReport> => {
-    // Ensure idea is at least a minimum length or attachment exists
     if (!idea.trim() && !attachment) {
       throw new Error("Please provide an idea or an attachment.");
     }
 
-    // Check for custom keys in localStorage
     const customModels = JSON.parse(localStorage.getItem('greenli8_custom_models') || '[]');
     let customApiKeys: any = undefined;
     
@@ -146,107 +109,62 @@ export const api = {
       });
     }
 
-    const res = await fetch(`${API_URL}/analyze`, {
+    return request<ValidationReport>('/analyze', {
       method: 'POST',
-      headers: getHeaders(),
       body: JSON.stringify({ 
         idea: idea.trim() || "Idea from attachment", 
         attachment,
-        preferredModel, // Pass preferred model to backend
-        customApiKeys // Pass custom keys to backend
+        preferredModel,
+        customApiKeys 
       }),
     });
-    
-    const text = await res.text();
-    let data;
-    try {
-      data = JSON.parse(text);
-    } catch (e) {
-      // Not JSON
-    }
-
-    if (!res.ok) {
-      throw new Error(data?.error || text.slice(0, 100) || res.statusText);
-    }
-    
-    return data;
   },
 
   chat: async (message: string, context: any): Promise<string> => {
-    const res = await fetch(`${API_URL}/chat`, {
+    const data = await request<{ text: string }>('/chat', {
         method: 'POST',
-        headers: getHeaders(),
         body: JSON.stringify({ message, context }),
     });
-    if (!res.ok) throw new Error('Chat failed');
-    const data = await res.json();
     return data.text;
   },
 
   updateProfile: async (data: Partial<UserProfile>): Promise<UserProfile> => {
-    const res = await fetch(`${API_URL}/users/profile`, {
+    return request<UserProfile>('/users/profile', {
       method: 'PUT',
-      headers: getHeaders(),
       body: JSON.stringify(data),
     });
-    if (!res.ok) throw new Error('Update failed');
-    return res.json();
   },
 
   deleteAccount: async (): Promise<void> => {
-    const res = await fetch(`${API_URL}/users/me`, {
-      method: 'DELETE',
-      headers: getHeaders(),
-    });
-    if (!res.ok) throw new Error('Deletion failed');
+    await request('/users/me', { method: 'DELETE' });
     localStorage.removeItem('Greenli8_token');
   },
 
   // --- Reports ---
   getHistory: async (): Promise<ValidationReport[]> => {
-     const res = await fetch(`${API_URL}/reports`, {
-       headers: getHeaders(),
-     });
-     
-     const text = await res.text();
-     let data;
-     try {
-       data = JSON.parse(text);
-     } catch (e) {
-       // Not JSON
-     }
-
-     if (!res.ok) {
-       throw new Error(data?.error || text.slice(0, 100) || res.statusText);
-     }
-     
+     const data = await request<ValidationReport[]>('/reports');
      return data || [];
    },
 
   // --- Marketing ---
   joinWaitlist: async (email: string, source: string = 'landing'): Promise<{ success: boolean }> => {
-    const res = await fetch(`${API_URL}/waitlist`, {
+    return request('/waitlist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, source }),
     });
-    if (!res.ok) throw new Error('Failed to join waitlist');
-    return res.json();
   },
 
   verifyPayment: async (sessionId: string) => {
-      const res = await fetch(`${API_URL}/verify-payment?session_id=${sessionId}`);
+      // Specialized handling because it returns the raw response in current code
+      // although changing it to return the JSON data would be better.
+      // To maintain compatibility with App.tsx verifyBackendPayment:
+      const res = await fetch(`${API_URL}/verify-payment?session_id=${sessionId}`, {
+          headers: getHeaders()
+      });
       if (!res.ok) {
-          let errorMessage = 'Payment verification failed';
-          try {
-              const err = await res.json();
-              errorMessage = err.error || errorMessage;
-          } catch (e) {
-              const text = await res.text();
-              errorMessage = text.slice(0, 100) || res.statusText;
-          }
-          throw new Error(errorMessage);
+          const text = await res.text();
+          throw new Error(text.slice(0, 100) || res.statusText);
       }
       return res;
-  }
+  },
 };

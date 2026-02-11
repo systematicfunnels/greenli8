@@ -8,10 +8,40 @@ interface HistoryViewProps {
   onSelect: (report: ValidationReport) => void;
   onClear: () => void;
   onBack: () => void;
+  isLoading?: boolean;
 }
 
-export const HistoryView: React.FC<HistoryViewProps> = ({ history, onSelect, onClear, onBack }) => {
+export const HistoryView: React.FC<HistoryViewProps> = ({ history, onSelect, onClear, onBack, isLoading = false }) => {
   const [confirming, setConfirming] = useState(false);
+  
+  if (isLoading) {
+    return (
+      <div className="max-w-3xl mx-auto px-4 py-8 animate-pulse">
+        <button 
+          disabled
+          className="flex items-center text-slate-300 mb-6 transition-colors text-sm font-medium cursor-default"
+        >
+          <ArrowLeft size={16} className="mr-2" /> Back
+        </button>
+
+        <div className="flex justify-between items-end mb-8">
+          <div className="space-y-2">
+             <div className="h-8 w-48 bg-slate-200 rounded-lg"></div>
+             <div className="h-4 w-32 bg-slate-100 rounded-lg"></div>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <div 
+              key={i} 
+              className="w-full bg-white border border-slate-100 rounded-xl p-5 h-28"
+            />
+          ))}
+        </div>
+      </div>
+    );
+  }
   
   if (!history || history.length === 0) {
     return (

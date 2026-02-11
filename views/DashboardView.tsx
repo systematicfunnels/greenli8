@@ -11,6 +11,7 @@ interface DashboardViewProps {
   onViewHistory: () => void;
   onViewReport: (report: ValidationReport) => void;
   onExample: () => void;
+  isLoading?: boolean;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({ 
@@ -19,8 +20,36 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onValidateNew, 
   onViewHistory,
   onViewReport,
-  onExample
+  onExample,
+  isLoading = false
 }) => {
+  if (isLoading) {
+    return (
+      <div className="max-w-5xl mx-auto px-4 py-8 animate-pulse">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div className="space-y-2">
+            <div className="h-8 w-48 bg-slate-200 rounded-lg"></div>
+            <div className="h-4 w-32 bg-slate-100 rounded-lg"></div>
+          </div>
+          <div className="h-10 w-40 bg-slate-200 rounded-lg"></div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-32 bg-slate-100 rounded-2xl border border-slate-200"></div>
+          ))}
+        </div>
+
+        <div className="space-y-4">
+          <div className="h-6 w-32 bg-slate-200 rounded-lg mb-4"></div>
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-24 bg-slate-50 rounded-xl border border-slate-100"></div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   const recentReports = history.slice(0, 3);
   const avgScore = history.length > 0 
     ? Math.round(history.reduce((acc, curr) => acc + curr.viabilityScore, 0) / history.length) 
