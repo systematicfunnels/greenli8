@@ -58,6 +58,22 @@ export const analyzeIdea = async (
 
   const ai = new GoogleGenAI({ apiKey: geminiKey });
 
+  const tryGenerateContent = async (modelName: string, contents: any[], config: any) => {
+    try {
+      return await ai.models.generateContent({
+        model: modelName,
+        contents,
+        config
+      });
+    } catch (e: any) {
+      if (e.message?.includes('404') || e.message?.includes('not found')) {
+        console.warn(`[AI] Model ${modelName} not found, trying fallback...`);
+        return null;
+      }
+      throw e;
+    }
+  };
+
   try {
     return await callWithTimeout(async (_signal) => {
       const parts: any[] = [];
@@ -71,39 +87,58 @@ export const analyzeIdea = async (
       }
       parts.push({ text: `Analyze this startup idea: ${idea}` });
 
-      const result = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
-        contents: [{ role: 'user', parts }],
-        config: {
-          systemInstruction: systemPrompt,
-          responseMimeType: "application/json",
-          temperature: 0.7,
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
-              oneLineTakeaway: { type: Type.STRING },
-              marketReality: { type: Type.STRING },
-              pros: { type: Type.ARRAY, items: { type: Type.STRING } },
-              cons: { type: Type.ARRAY, items: { type: Type.STRING } },
-              competitors: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    name: { type: Type.STRING },
-                    differentiation: { type: Type.STRING }
-                  }
+      const config = {
+        systemInstruction: systemPrompt,
+        responseMimeType: "application/json",
+        temperature: 0.7,
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summaryVerdict: { type: Type.STRING, enum: ["Promising", "Risky", "Needs Refinement"] },
+            oneLineTakeaway: { type: Type.STRING },
+            marketReality: { type: Type.STRING },
+            pros: { type: Type.ARRAY, items: { type: Type.STRING } },
+            cons: { type: Type.ARRAY, items: { type: Type.STRING } },
+            competitors: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  name: { type: Type.STRING },
+                  differentiation: { type: Type.STRING }
                 }
-              },
-              viabilityScore: { type: Type.NUMBER },
-              nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
-            }
+              }
+            },
+            viabilityScore: { type: Type.NUMBER },
+            nextSteps: { type: Type.ARRAY, items: { type: Type.STRING } }
           }
         }
-      });
+      };
 
-      console.log('[AI] Gemini success');
+      const contents = [{ role: 'user', parts }];
+      
+      // Try models in order of preference
+      const modelsToTry = ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-pro'];
+      let result = null;
+      let lastError = null;
+
+      for (const model of modelsToTry) {
+        try {
+          result = await tryGenerateContent(model, contents, config);
+          if (result) {
+            console.log(`[AI] Gemini success with model: ${model}`);
+            break;
+          }
+        } catch (e: any) {
+          lastError = e;
+          console.error(`[AI] Model ${model} failed:`, e.message);
+        }
+      }
+
+      if (!result) {
+        throw lastError || new Error("All Gemini models failed to respond.");
+      }
+
       return parseResponse(result.text || '');
     }, getRemainingTimeout());
   } catch (e: any) {
@@ -121,7 +156,7 @@ export const chatWithAI = async (message: string, context: { originalIdea: strin
   const ai = new GoogleGenAI({ apiKey: env.geminiKey });
 
   const result = await ai.models.generateContent({
-    model: 'gemini-1.5-flash',
+    model: 'gemini-1.5-flash-latest',
     contents: [
       {
         role: "user",

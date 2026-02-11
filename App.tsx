@@ -42,7 +42,7 @@ import { Footer } from './components/Footer';
 
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-import { AlertCircle, History, Settings, HelpCircle, LogIn, LayoutDashboard, LogOut, ChevronDown, Loader2 } from 'lucide-react';
+import { AlertCircle, History, Settings, HelpCircle, LogIn, LayoutDashboard, LogOut, ChevronDown, Loader2, Sparkles, Zap } from 'lucide-react';
 
 import { Button } from './components/Button';
 
@@ -762,98 +762,64 @@ export const App: React.FC = () => {
 
           <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
 
-            <div className="flex items-center gap-2 cursor-pointer group" onClick={() => setCurrentView(user ? 'dashboard' : 'marketing')}>
-
-              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center group-hover:bg-slate-800 transition-colors">
-
-                <span className="text-white font-bold text-lg">V</span>
-
+            <div className="flex items-center gap-2 cursor-pointer group select-none active:scale-95 transition-transform" onClick={() => setCurrentView(user ? 'dashboard' : 'marketing')}>
+              <div className="w-9 h-9 bg-slate-900 rounded-xl flex items-center justify-center group-hover:bg-slate-800 transition-all shadow-sm">
+                <span className="text-white font-bold text-xl">G</span>
               </div>
-
-              <span className="font-bold text-lg tracking-tight hidden sm:block">Greenli8</span>
-
+              <span className="font-bold text-xl tracking-tight hidden sm:block bg-gradient-to-r from-slate-900 to-slate-600 bg-clip-text text-transparent">Greenli8</span>
             </div>
 
             
 
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex items-center gap-2 sm:gap-4">
 
                 {user && (
-
                   <div 
-
-                      className={`flex items-center px-3 py-1 rounded-full text-xs sm:text-sm font-medium cursor-pointer transition-colors ${
-
-                          isLifetime ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs sm:text-sm font-semibold cursor-pointer transition-all active:scale-95 shadow-sm ${
+                          isLifetime 
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100' 
+                            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200'
                       }`}
-
                       onClick={() => setCurrentView('pricing')}
-
                   >
-
                       {isLifetime ? (
-
-                          <span className="font-bold tracking-wide">LIFETIME</span>
-
+                          <>
+                            <Sparkles size={14} className="text-emerald-500" />
+                            <span className="tracking-wide">LIFETIME PRO</span>
+                          </>
                       ) : (
-
-                          <span>{credits} Credits</span>
-
+                          <>
+                            <Zap size={14} className="text-amber-500 fill-amber-500" />
+                            <span>{credits} Credits</span>
+                          </>
                       )}
-
                   </div>
-
                 )}
 
-
-
                 {user ? (
-
                     <>
-
                         <button 
-
                           onClick={() => setCurrentView('dashboard')}
-
-                          className={`hidden md:block text-sm font-medium transition-colors ${currentView === 'dashboard' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-
+                          className={`hidden md:flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg transition-all active:scale-95 ${currentView === 'dashboard' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
                         >
-
-                          Dashboard
-
+                          <LayoutDashboard size={16} /> Dashboard
                         </button>
-
                         <button 
-
                           onClick={() => setCurrentView('history')}
-
-                          className={`hidden md:block text-sm font-medium transition-colors ${currentView === 'history' ? 'text-slate-900' : 'text-slate-500 hover:text-slate-900'}`}
-
+                          className={`hidden md:flex items-center gap-1.5 text-sm font-semibold px-3 py-2 rounded-lg transition-all active:scale-95 ${currentView === 'history' ? 'bg-slate-900 text-white shadow-md' : 'text-slate-600 hover:bg-slate-100'}`}
                         >
-
-                          History
-
+                          <History size={16} /> History
                         </button>
 
                         <div className="relative" ref={dropdownRef}>
-
                           <button 
-
                               onClick={() => setUserMenuOpen(!userMenuOpen)}
-
-                              className="flex items-center gap-2 pl-1 pr-1 py-1 rounded-full hover:bg-slate-50 transition-colors focus:outline-none focus:ring-2 focus:ring-slate-100"
-
+                              className="flex items-center gap-2 p-1.5 rounded-full hover:bg-slate-50 transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-slate-100"
                           >
-
                               <div className="w-8 h-8 bg-slate-900 text-white rounded-full flex items-center justify-center font-bold text-sm shadow-sm">
-
                                   {user.name.charAt(0).toUpperCase()}
-
                               </div>
-
                               <ChevronDown size={14} className={`text-slate-400 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
-
                           </button>
 
                           {userMenuOpen && (
@@ -912,34 +878,37 @@ export const App: React.FC = () => {
 
                 ) : (
 
-                    <>
+                    <div className="flex items-center gap-1 sm:gap-2">
 
-                        <button onClick={() => setCurrentView('history')} className="p-2 text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
-
+                        <button 
+                          onClick={() => setCurrentView('history')} 
+                          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-full transition-all active:scale-95"
+                          title="History"
+                        >
                             <History size={20} />
-
                         </button>
 
-                        <button onClick={() => setCurrentView('help')} className="p-2 text-slate-500 hover:text-slate-900 transition-colors hidden sm:block">
-
+                        <button 
+                          onClick={() => setCurrentView('help')} 
+                          className="p-2 text-slate-500 hover:text-slate-900 hover:bg-slate-50 rounded-full transition-all active:scale-95"
+                          title="Help"
+                        >
                             <HelpCircle size={20} />
-
                         </button>
 
-                        <Button size="sm" variant="outline" onClick={() => setCurrentView('auth')} className="flex gap-2 ml-2">
+                        <button 
+                            onClick={() => setCurrentView('auth')}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white rounded-xl text-sm font-bold hover:bg-slate-800 transition-all active:scale-95 shadow-sm ml-1"
+                        >
+                            <LogIn size={18} />
+                            <span className="hidden xs:block">Log In</span>
+                        </button>
 
-                          <LogIn size={16} /> <span className="hidden sm:inline">Log in</span>
-
-                        </Button>
-
-                    </>
+                    </div>
 
                 )}
-
             </div>
-
           </div>
-
         </nav>
 
       )}
