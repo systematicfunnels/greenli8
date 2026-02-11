@@ -10,8 +10,8 @@ interface InputViewProps {
 }
 
 export const InputView: React.FC<InputViewProps> = ({ onBack, onSubmit, credits, isLifetime }) => {
-  const [idea, setIdea] = useState("");
-  const [preferredModel, setPreferredModel] = useState("auto");
+  const [idea, setIdea] = useState('');
+  const [preferredModel, setPreferredModel] = useState('auto');
   const [attachment, setAttachment] = useState<{ name: string; mimeType: string; data: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   

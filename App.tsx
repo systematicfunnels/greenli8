@@ -540,7 +540,7 @@ export const App: React.FC = () => {
 
 
 
-  const handleSubmitIdea = async (idea: string, attachment?: { mimeType: string, data: string }) => {
+  const handleSubmitIdea = async (idea: string, attachment?: { mimeType: string, data: string }, preferredModel?: string) => {
 
     setCurrentView('loading');
 
@@ -554,7 +554,7 @@ export const App: React.FC = () => {
 
       // Pass user email to secure backend to enforce server-side credit check
 
-      const result = await validateIdea(idea, attachment, user?.email);
+      const result = await validateIdea(idea, attachment, user?.email, preferredModel);
 
       
 
@@ -1063,8 +1063,6 @@ export const App: React.FC = () => {
                 credits={credits}
 
                 isLifetime={isLifetime}
-
-                onNavigateToApiKeys={() => setCurrentView('custom_api_keys')}
 
             />
 

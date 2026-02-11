@@ -4,8 +4,8 @@ import { api } from "./api";
 // This file formerly called Google API directly.
 // Now it forwards requests to our secure backend (api.ts).
 
-export const validateIdea = async (idea: string, attachment?: { mimeType: string; data: string }, _email?: string): Promise<ValidationReport> => {
-  return await api.analyzeIdea(idea, attachment);
+export const validateIdea = async (idea: string, attachment?: { mimeType: string; data: string }, _email?: string, preferredModel?: string): Promise<ValidationReport> => {
+  return await api.analyzeIdea(idea, attachment, preferredModel);
 };
 
 export const initializeChat = (report: ValidationReport, originalIdea: string) => {
