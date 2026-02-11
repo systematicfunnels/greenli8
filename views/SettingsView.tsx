@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '../components/Button';
 import { Card } from '../components/Card';
 import { Modal } from '../components/Modal';
-import { Loader2, FileArchive, Key, Trash2, ChevronDown, ChevronRight, Edit2, Zap, Sparkles, Box } from 'lucide-react';
+import { Loader2, FileArchive, Key, Trash2, ChevronDown, ChevronRight, Edit2, Zap, Sparkles, Box, CheckCircle2 } from 'lucide-react';
 import { UserProfile, ValidationReport } from '../types';
 import { jsPDF } from "jspdf";
 import JSZip from "jszip";
@@ -52,13 +52,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   };
 
   const premiumModels = [
-    { name: 'Gemini-2.0-Pro', type: 'Premium', provider: 'TRAE', icon: <Sparkles size={14} /> },
-    { name: 'Gemini-1.5-Pro', type: 'Premium', provider: 'TRAE', icon: <Sparkles size={14} /> },
+    { name: 'Gemini-2.0-Pro', type: 'Premium', provider: 'GREENLI8', icon: <Sparkles size={14} /> },
+    { name: 'Gemini-1.5-Pro', type: 'Premium', provider: 'GREENLI8', icon: <Sparkles size={14} /> },
   ];
 
   const advancedModels = [
-    { name: 'Gemini-2.0-Flash', type: 'Standard', provider: 'TRAE', icon: <Zap size={14} /> },
-    { name: 'Gemini-1.5-Flash', type: 'Standard', provider: 'TRAE', icon: <Zap size={14} /> },
+    { name: 'Gemini-2.0-Flash', type: 'Standard', provider: 'GREENLI8', icon: <Zap size={14} /> },
+    { name: 'Gemini-1.5-Flash', type: 'Standard', provider: 'GREENLI8', icon: <Zap size={14} /> },
   ];
 
   // Add Model Form State
@@ -492,44 +492,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </select>
           </div>
           <div>
-            <label className="block text-sm font-semibold mb-1 text-slate-700">* Model</label>
-            <select 
+            <label className="block text-sm font-semibold mb-1 text-slate-700">* Model Name</label>
+            <input 
+              type="text"
               value={newModel}
               onChange={(e) => setNewModel(e.target.value)}
               className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none bg-white text-sm"
-            >
-              <option value="">Choose Model</option>
-              {newProvider === 'gemini' && (
-                <>
-                  <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
-                  <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
-                </>
-              )}
-              {newProvider === 'openrouter' && (
-                <>
-                  <option value="openrouter/auto">OpenRouter Auto</option>
-                  <option value="google/gemini-2.0-flash-001">Gemini 2.0 Flash (via OR)</option>
-                  <option value="anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (via OR)</option>
-                </>
-              )}
-              {newProvider === 'sarvam' && (
-                <option value="sarvam-m">Sarvam M</option>
-              )}
-              {newProvider === 'custom' && (
-                <option value="custom-model">Custom Model</option>
-              )}
-              {!newProvider && <option value="" disabled>Select a provider first</option>}
-            </select>
+              placeholder={
+                newProvider === 'gemini' ? "e.g. gemini-2.0-flash" :
+                newProvider === 'openrouter' ? "e.g. google/gemini-2.0-flash-001" :
+                newProvider === 'sarvam' ? "e.g. sarvam-m" :
+                "Enter model name here"
+              }
+              disabled={!newProvider}
+            />
           </div>
           <div>
             <label className="block text-sm font-semibold mb-1 text-slate-700">* API Key</label>
-            <input 
-              type="password" 
-              value={newApiKey}
-              onChange={(e) => setNewApiKey(e.target.value)}
-              className="w-full p-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none text-sm" 
-              placeholder="Fill API Key here" 
-            />
+            <div className="relative">
+              <input 
+                type="password" 
+                value={newApiKey}
+                onChange={(e) => setNewApiKey(e.target.value)}
+                className={`w-full p-2.5 border rounded-lg focus:ring-2 focus:ring-slate-900 focus:outline-none text-sm pr-10 ${
+                  newApiKey.length >= 8 ? 'border-emerald-200 bg-emerald-50/10' : 'border-slate-200'
+                }`} 
+                placeholder="Fill API Key here" 
+              />
+              {newApiKey.length >= 8 && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-500 flex items-center gap-1.5 animate-in fade-in zoom-in duration-300">
+                  <CheckCircle2 size={16} />
+                </div>
+              )}
+            </div>
+            {newApiKey.length >= 8 && (
+              <p className="text-[10px] text-emerald-600 mt-1 flex items-center gap-1 font-medium">
+                API key is configured correctly
+              </p>
+            )}
           </div>
           <div className="pt-2">
             <Button fullWidth onClick={handleAddModel} className="bg-slate-900 text-white py-3">
