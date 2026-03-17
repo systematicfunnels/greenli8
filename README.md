@@ -1,12 +1,12 @@
 
 
-# 🌿 greenli8
+# 🌿 Validate_AI
 
 > **AI-Powered Business Idea Validator**
 > 
 > Validate your startup ideas in seconds using advanced AI analysis powered by Google's Gemini API.
 
-[![Live Demo](https://img.shields.io/badge/Live%20Demo-greenli8.vercel.app-00D084?style=for-the-badge&logo=vercel)](https://greenli8.vercel.app)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Validate_AI.vercel.app-00D084?style=for-the-badge&logo=vercel)](https://Validate_AI.vercel.app)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.8.2-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-19.2.4-61DAFB?style=for-the-badge&logo=react)](https://react.dev/)
 [![Express](https://img.shields.io/badge/Express-5.2.1-000000?style=for-the-badge&logo=express)](https://expressjs.com/)
@@ -36,9 +36,9 @@
 
 ## 🎯 About
 
-**greenli8** is a full-stack AI Studio application that helps entrepreneurs and innovators validate their business ideas instantly. By leveraging Google's Gemini AI, greenli8 analyzes ideas for market potential, feasibility, and competitive advantage—all in seconds.
+**Validate_AI** is a full-stack AI Studio application that helps entrepreneurs and innovators validate their business ideas instantly. By leveraging Google's Gemini AI, Validate_AI analyzes ideas for market potential, feasibility, and competitive advantage—all in seconds.
 
-Whether you're a startup founder, product manager, or entrepreneur, greenli8 provides intelligent, data-driven validation to help you make better decisions faster.
+Whether you're a startup founder, product manager, or entrepreneur, Validate_AI provides intelligent, data-driven validation to help you make better decisions faster.
 
 ### Key Statistics
 - ⚡ AI validation in **< 10 seconds**
@@ -154,8 +154,8 @@ Before you begin, ensure you have:
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/systematicfunnels/greenli8.git
-   cd greenli8
+   git clone https://github.com/systematicfunnels/Validate_AI.git
+   cd Validate_AI
    ```
 
 2. **Install dependencies**
@@ -241,7 +241,7 @@ Tests use Vitest and Supertest for API testing.
 ## 📁 Project Structure
 
 ```
-greenli8/
+Validate_AI/
 ├── api/                          # API route handlers
 ├─��� components/                   # React components
 │   ├── IdeaValidator.tsx        # Main validation component
@@ -289,7 +289,7 @@ Create a `.env.local` file in the root directory with the following variables:
 GEMINI_API_KEY=your_api_key_here
 
 # Database (Prisma)
-DATABASE_URL=postgresql://user:password@localhost:5432/greenli8
+DATABASE_URL=postgresql://user:password@localhost:5432/Validate_AI
 
 # Authentication
 JWT_SECRET=your_jwt_secret_key_here
@@ -309,7 +309,7 @@ NODE_ENV=development
 CLIENT_URL=http://localhost:5173
 
 # CORS Configuration
-CORS_ORIGIN=http://localhost:5173,https://greenli8.vercel.app
+CORS_ORIGIN=http://localhost:5173,https://Validate_AI.vercel.app
 ```
 
 ### .env.example
@@ -374,7 +374,7 @@ The project includes example tests in `server.test.js`:
 
 ### Deploy on Vercel (Recommended)
 
-greenli8 is optimized for Vercel deployment.
+Validate_AI is optimized for Vercel deployment.
 
 1. **Push to GitHub**
    ```bash
@@ -384,7 +384,7 @@ greenli8 is optimized for Vercel deployment.
 2. **Import on Vercel**
    - Go to [vercel.com](https://vercel.com)
    - Click "New Project"
-   - Select your greenli8 repository
+   - Select your Validate_AI repository
    - Click "Import"
 
 3. **Configure Environment Variables**
@@ -474,7 +474,7 @@ const result = await model.generateContent({
 
 Add Stripe webhook endpoint to your Stripe Dashboard:
 ```
-https://greenli8.vercel.app/api/stripe/webhook
+https://Validate_AI.vercel.app/api/stripe/webhook
 ```
 
 ### Email Service (Resend)
@@ -494,8 +494,8 @@ We welcome contributions! Follow these steps:
 
 ### Fork & Clone
 ```bash
-git clone https://github.com/your-username/greenli8.git
-cd greenli8
+git clone https://github.com/your-username/Validate_AI.git
+cd Validate_AI
 ```
 
 ### Create Feature Branch
@@ -535,26 +535,26 @@ git push origin feature/amazing-feature
 
 This project currently has **no license specified**.
 
-> **Note**: Before using greenli8 commercially, clarify the licensing terms with the repository owner.
+> **Note**: Before using Validate_AI commercially, clarify the licensing terms with the repository owner.
 
 ---
 
 ## 📞 Support & Contact
 
 ### Report Issues
-- 🐛 [Open a GitHub Issue](https://github.com/systematicfunnels/greenli8/issues)
+- 🐛 [Open a GitHub Issue](https://github.com/systematicfunnels/Validate_AI/issues)
 - Describe the problem clearly
 - Include error messages and screenshots
 - Provide reproduction steps
 
 ### Get Help
-- 📖 [View Discussions](https://github.com/systematicfunnels/greenli8/discussions)
+- 📖 [View Discussions](https://github.com/systematicfunnels/Validate_AI/discussions)
 - 💬 Ask questions in discussions
 - Share ideas and feedback
 
 ### Contact
-- **Repository**: https://github.com/systematicfunnels/greenli8
-- **Live Demo**: https://greenli8.vercel.app
+- **Repository**: https://github.com/systematicfunnels/Validate_AI
+- **Live Demo**: https://Validate_AI.vercel.app
 - **Owner**: [@systematicfunnels](https://github.com/systematicfunnels)
 
 ---
@@ -604,8 +604,8 @@ This project currently has **no license specified**.
 
 ## Made with ❤️ by systematicfunnels
 
-**[⭐ Star on GitHub](https://github.com/systematicfunnels/greenli8)** • **[🚀 Try the Demo](https://greenli8.vercel.app)**
+**[⭐ Star on GitHub](https://github.com/systematicfunnels/Validate_AI)** • **[🚀 Try the Demo](https://Validate_AI.vercel.app)**
 
-Questions? [Open an Issue](https://github.com/systematicfunnels/greenli8/issues) or [Start a Discussion](https://github.com/systematicfunnels/greenli8/discussions)
+Questions? [Open an Issue](https://github.com/systematicfunnels/Validate_AI/issues) or [Start a Discussion](https://github.com/systematicfunnels/Validate_AI/discussions)
 
 </div>
